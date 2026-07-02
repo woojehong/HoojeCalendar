@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#0a0c0f" />
+<title>Hooje Calendar · 후제 캘린더</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.7.0/dist/tabler-icons.min.css" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<div id="loginScreen" class="login" hidden>
+  <div class="login-card">
+    <div class="login-mark"><i class="ti ti-calendar-heart"></i></div>
+    <div class="login-title">Hooje Calendar</div>
+    <div class="login-sub">후제 캘린더</div>
+    <button id="loginBtn" class="login-btn"><i class="ti ti-brand-google"></i> 구글로 로그인</button>
+    <div class="login-note">내 구글 계정으로만 접근할 수 있어요.</div>
+  </div>
+</div>
+
+<div class="shell">
+  <aside class="rail">
+    <div class="rail-brand"><i class="ti ti-calendar-heart"></i><b>Hooje</b><span>Calendar</span></div>
+    <nav class="rail-nav" id="railNav">
+      <button data-tab="home" class="active"><i class="ti ti-layout-dashboard"></i><span>홈</span></button>
+      <button data-tab="stats"><i class="ti ti-chart-bar"></i><span>통계</span></button>
+      <button data-tab="settings"><i class="ti ti-settings"></i><span>설정</span></button>
+    </nav>
+    <button class="rail-add" id="railAdd" aria-label="일정 추가"><i class="ti ti-plus"></i></button>
+  </aside>
+
+  <main class="main">
+    <section id="tab-home" class="tab"></section>
+    <section id="tab-stats" class="tab" hidden></section>
+    <section id="tab-settings" class="tab" hidden></section>
+  </main>
+
+  <nav class="tabbar" id="tabbar">
+    <button data-tab="home" class="active"><i class="ti ti-layout-dashboard"></i><span>홈</span></button>
+    <button data-tab="stats"><i class="ti ti-chart-bar"></i><span>통계</span></button>
+    <button class="fab" id="fab" aria-label="일정 추가"><i class="ti ti-plus"></i></button>
+    <button data-tab="settings"><i class="ti ti-settings"></i><span>설정</span></button>
+  </nav>
+</div>
+
+<div class="modal-root" id="modalRoot" hidden></div>
+<div class="toast" id="toast" hidden></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

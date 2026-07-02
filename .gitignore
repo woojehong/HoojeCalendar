@@ -1,0 +1,7 @@
+# Firebase 서비스 계정 키 (비밀 — 절대 커밋 금지)
+*firebase-adminsdk*.json
+serviceAccount*.json
+service-account*.json
+*.key.json
+# 기타
+node_modules/
