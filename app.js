@@ -119,6 +119,7 @@ function eventsForRange(rs,re){
   const out=[];
   DB.events.forEach(ev=>{
     if(!DB.happyOn){var _sc=catById(ev.catId);if(_sc&&_sc.secret)return;}
+    if(catFilter&&ev.catId!==catFilter)return;
     const base=parseYmd(ev.date);const baseEnd=parseYmd(ev.endDate||ev.date);
     const spanDays=Math.round((startOfDay(baseEnd)-startOfDay(base))/86400000);
     const rep=ev.repeat||"none";
@@ -328,7 +329,8 @@ let selDate=dayKeyNow();
 var expMonth=ymd(todayD()).slice(0,7);
 var happyMonth=ymd(todayD()).slice(0,7);
 var statPeriod="month";
-var goldPeriod="month";
+var goldPeriod="all";
+var catFilter=null;
 
 /* ===== 홈 (달력 + 허브) ===== */
 function isDesktop(){ return window.matchMedia("(min-width:900px)").matches; }
@@ -386,7 +388,7 @@ function renderChkDesktop(host){
 }
 function renderHome(){
   const host=document.getElementById("tab-home");
-  const legend=DB.categories.filter(function(c){return !c.secret||DB.happyOn;}).map(c=>'<span class="leg-dot" title="'+escapeHtml(c.name)+'" data-legname="'+escapeHtml(c.name)+'"><i class="dot" style="background:'+c.color+'"></i></span>').join("");
+  const legend='<span class="leg-dot'+(catFilter===null?' leg-on':'')+'" title="전체" data-legall><i class="dot leg-all"></i></span>'+DB.categories.filter(function(c){return !c.secret||DB.happyOn;}).map(c=>'<span class="leg-dot'+(catFilter===c.id?' leg-on':'')+'" title="'+escapeHtml(c.name)+'" data-legcat="'+c.id+'"><i class="dot" style="background:'+c.color+'"></i></span>').join("");
   const mhead='<div class="mhead"><div><span class="mtitle" id="mTitle"></span><span class="myear" id="mYear"></span></div><div class="nav"><button id="prevM" aria-label="이전 달">‹</button><button class="today-btn" id="todayM">Today</button><button id="nextM" aria-label="다음 달">›</button></div></div>';
   const dow='<div class="dow"><div style="color:var(--sat)">일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div style="color:var(--sun)">토</div></div>';
   if(isDesktop()){
@@ -397,7 +399,8 @@ function renderHome(){
   document.getElementById("prevM").onclick=()=>{viewMonth.setMonth(viewMonth.getMonth()-1);buildMonthGrid();};
   document.getElementById("nextM").onclick=()=>{viewMonth.setMonth(viewMonth.getMonth()+1);buildMonthGrid();};
   document.getElementById("todayM").onclick=()=>{viewMonth=new Date(todayD().getFullYear(),todayD().getMonth(),1);selDate=dayKeyNow();refreshDay();};
-  document.querySelectorAll("[data-legname]").forEach(function(x){x.onclick=function(){toast(x.dataset.legname);};});
+  document.querySelectorAll("[data-legcat]").forEach(function(x){x.onclick=function(){catFilter=(catFilter===x.dataset.legcat)?null:x.dataset.legcat;renderHome();};});
+  var _la=document.querySelector("[data-legall]");if(_la)_la.onclick=function(){catFilter=null;renderHome();};
   var _bl=host.querySelector(".brandline");if(_bl)addLongPress(_bl,toggleHappy);
   refreshDay();
 }
@@ -1287,6 +1290,7 @@ function bindNav(){
   document.getElementById("fab").onclick=function(){openEditor(null,{date:selDate});};
   document.getElementById("railAdd").onclick=function(){openEditor(null,{date:selDate});};
   var rs=document.getElementById("railSecret");if(rs)rs.onclick=toggleHappy;
+  var rb=document.querySelector(".rail-brand");if(rb)rb.onclick=function(){switchTab("home");};
   window.addEventListener("popstate",function(){ if(document.querySelector(".detail-overlay")||document.querySelector(".ev-preview-bg"))return; if(tabPushed){tabPushed=false;switchTab("home",true);} });
 }
 function showLogin(){ var ls=document.getElementById("loginScreen"); if(ls){ls.style.display="";ls.hidden=false;} document.querySelector(".shell").style.display="none"; }
