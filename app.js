@@ -16,6 +16,7 @@ function mdShort(dstr){const d=parseYmd(dstr);return (d.getMonth()+1)+"/"+d.getD
 function toMin(t){const a=t.split(":").map(Number);return a[0]*60+a[1];}
 function tlMin(t){var m=toMin(t);return m<360?m+1440:m;}
 function addHour(t){let a=t.split(":").map(Number);let h=Math.min(23,a[0]+1);return pad(h)+":"+pad(a[1]);}
+function addMin(t,m){var x=(toMin(t)+(m||0))%1440;if(x<0)x+=1440;return pad(Math.floor(x/60))+":"+pad(x%60);}
 
 /* 주기 키 (선택 날짜 기준) */
 function keyDaily(dstr){return dstr;}
@@ -133,6 +134,12 @@ function wowCounter(q,dstr,delta){
 /* ===== 카운터 (커스텀 필드 기록) ===== */
 function counterById(id){return (DB.counters||[]).find(function(c){return c.id===id;});}
 function counterCount(c,dstr){
+  if(c.kind==="workout"){
+    var evs=(DB.events||[]).filter(function(e){return e.workout&&e.workout.type===c.workoutType;});
+    if(c.period==="daily")return evs.filter(function(e){return e.date===dstr;}).length;
+    if(c.period==="monthly"){var ym=dstr.slice(0,7);return evs.filter(function(e){return (e.date||"").slice(0,7)===ym;}).length;}
+    var wr=weekGenRange(dstr);return evs.filter(function(e){return e.date>=wr[0]&&e.date<=wr[1];}).length;
+  }
   var logs=(DB.counterLogs||[]).filter(function(l){return l.counterId===c.id;});
   if(c.period==="weekly"){var r=weekGenRange(dstr);return logs.filter(function(l){return l.date>=r[0]&&l.date<=r[1];}).length;}
   if(c.period==="monthly"){var ym=dstr.slice(0,7);return logs.filter(function(l){return l.date.slice(0,7)===ym;}).length;}
@@ -158,8 +165,8 @@ function blkCounters(el){
   }).join("");
   el.innerHTML=head+'<div class="cnt-wrap">'+chips+'</div>';
   bindSectionHead(el,"counters");
-  el.querySelectorAll("[data-cadd]").forEach(function(x){x.onclick=function(){openCounterLog(x.dataset.cadd);};});
-  el.querySelectorAll("[data-clog]").forEach(function(x){x.onclick=function(){openCounterDay(x.dataset.clog);};});
+  el.querySelectorAll("[data-cadd]").forEach(function(x){x.onclick=function(){var c=counterById(x.dataset.cadd);if(c&&c.kind==="workout")openWorkoutLog(c.id);else openCounterLog(x.dataset.cadd);};});
+  el.querySelectorAll("[data-clog]").forEach(function(x){x.onclick=function(){var c=counterById(x.dataset.clog);if(c&&c.kind==="workout")openWorkoutList(c.id);else openCounterDay(x.dataset.clog);};});
 }
 function counterFieldHtml(f,e){
   var v=(e.values&&e.values[f.id]!==undefined)?e.values[f.id]:f.default;
@@ -211,6 +218,44 @@ function openCounterDay(cid){
   var q=function(sel){return root.querySelector(sel);};q("#mX").onclick=closeModal;
   q("#clAdd").onclick=function(){openCounterLog(cid);};
   root.querySelectorAll("[data-edit]").forEach(function(x){x.onclick=function(){openCounterLog(cid,x.dataset.edit);};});
+}
+function openWorkoutLog(cid,eventId){
+  var c=counterById(cid);if(!c)return;var cat=catById(c.catId);
+  var ev=eventId?masterOf(eventId):null;var w=(ev&&ev.workout)||{};
+  var now=new Date();var defTime=pad(now.getHours())+":"+pad(now.getMinutes());
+  var e={date:ev?ev.date:selDate,time:ev?ev.start:defTime,part:w.part||"",mins:(w.mins!=null?w.mins:"")};
+  var hasPart=(c.workoutType==="근력");
+  var root=document.getElementById("modalRoot");
+  root.innerHTML='<div class="sheet"><div class="sheet-h"><span class="title"><i class="dot" style="background:'+cat.color+';margin-right:7px"></i>'+escapeHtml(c.name)+(ev?" · 편집":"")+'</span><button class="x" id="mX">×</button></div>'+
+    '<div class="row2"><div class="field"><label>날짜</label><input type="date" id="wDate" value="'+e.date+'"/></div>'+
+    '<div class="field"><label>시각</label><input type="time" id="wTime" value="'+e.time+'"/></div></div>'+
+    (hasPart?'<div class="field"><label>부위</label><input type="text" id="wPart" value="'+escapeHtml(e.part)+'" placeholder="예: 가슴 · 삼두"/></div>':'')+
+    '<div class="field"><label>시간 (분)</label><input type="number" inputmode="numeric" id="wMins" value="'+e.mins+'" placeholder="예: 40"/></div>'+
+    '<div class="sheet-actions">'+(ev?'<button class="btn danger" id="wDel">삭제</button>':'')+'<button class="btn gold" id="wSave">'+(ev?"저장":"기록")+'</button></div></div>';
+  root.hidden=false;root.onclick=function(x){if(x.target===root)closeModal();};
+  var q=function(sel){return root.querySelector(sel);};q("#mX").onclick=closeModal;
+  q("#wSave").onclick=function(){
+    var mins=Number(q("#wMins").value)||0;var start=q("#wTime").value||defTime;var part=hasPart?q("#wPart").value.trim():"";
+    var rec={id:ev?ev.id:uid(),catId:c.catId,title:c.name+(part?" · "+part:""),date:q("#wDate").value,allDay:false,start:start,end:addMin(start,mins||0),imp:1,repeat:"none",workout:{type:c.workoutType,part:part,mins:mins}};
+    var i=DB.events.findIndex(function(x){return x.id===rec.id;});if(i>=0)DB.events[i]=rec;else DB.events.push(rec);
+    save();closeModal();selDate=rec.date;renderHome();toast(ev?"수정됨":"기록됨");
+  };
+  var del=q("#wDel");if(del)del.onclick=function(){if(confirm("이 운동 기록을 삭제할까요? (일정에서도 사라져요)")){DB.events=DB.events.filter(function(x){return x.id!==ev.id;});save();closeModal();renderHome();toast("삭제됨");}};
+}
+function openWorkoutList(cid){
+  var c=counterById(cid);if(!c)return;var cat=catById(c.catId);
+  var r=weekGenRange(selDate);
+  var evs=(DB.events||[]).filter(function(e){return e.workout&&e.workout.type===c.workoutType&&e.date>=r[0]&&e.date<=r[1];}).sort(function(a,b){return (a.date+a.start).localeCompare(b.date+b.start);});
+  var rows=evs.length?evs.map(function(e){var dd=parseYmd(e.date);var w=e.workout||{};var meta=(w.part?escapeHtml(w.part)+" · ":"")+(w.mins?w.mins+"분":"");
+    return '<div class="crow" data-edit="'+e.id+'" style="cursor:pointer"><span class="ctime">'+(dd.getMonth()+1)+'/'+dd.getDate()+' '+e.start+'</span><span class="ctitle clip">'+(meta||escapeHtml(c.name))+'</span><i class="ti ti-chevron-right" style="color:var(--faint)"></i></div>';
+  }).join(""):emptyHtml("이번 주 기록 없음");
+  var root=document.getElementById("modalRoot");
+  root.innerHTML='<div class="sheet"><div class="sheet-h"><span class="title"><i class="dot" style="background:'+cat.color+';margin-right:7px"></i>'+escapeHtml(c.name)+' · 이번 주 '+evs.length+'회</span><button class="x" id="mX">×</button></div>'+
+    rows+'<div class="sheet-actions"><button class="btn gold" id="wAdd">＋ 기록 추가</button></div></div>';
+  root.hidden=false;root.onclick=function(x){if(x.target===root)closeModal();};
+  var q=function(sel){return root.querySelector(sel);};q("#mX").onclick=closeModal;
+  q("#wAdd").onclick=function(){openWorkoutLog(cid);};
+  root.querySelectorAll("[data-edit]").forEach(function(x){x.onclick=function(){openWorkoutLog(cid,x.dataset.edit);};});
 }
 
 /* ===== UI state ===== */
@@ -280,7 +325,7 @@ function renderHome(){
   if(isDesktop()){
     host.innerHTML='<div class="home"><div class="cal-col"><div class="legend">'+legend+'</div>'+mhead+dow+'<div class="grid" id="calGrid"></div><div style="height:0.5px;background:var(--line);margin:14px 0"></div><div id="dayPanel"></div></div><div class="hub-col" id="hubCol"></div></div>';
   } else {
-    host.innerHTML='<div class="home"><div class="cal-col"><div class="brandline"><i class="ti ti-calendar-heart"></i>Hooje Calendar</div><div class="legend">'+legend+'</div>'+mhead+dow+'<div class="grid" id="calGrid"></div></div><div class="hub-div"></div><div class="hub-col" id="hubCol"></div></div>';
+    host.innerHTML='<div class="home"><div class="cal-col"><div class="brandline"><svg class="brand-ico" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="9" y="14" width="46" height="42" rx="8" stroke="currentColor" stroke-width="3.2"/><line x1="9" y1="25" x2="55" y2="25" stroke="currentColor" stroke-width="3.2"/><line x1="21" y1="8" x2="21" y2="18" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/><line x1="43" y1="8" x2="43" y2="18" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/><path fill-rule="evenodd" fill="currentColor" d="M19,41 a11,11 0 1,0 22,0 a11,11 0 1,0 -22,0 z M26,37.5 a10,10 0 1,0 20,0 a10,10 0 1,0 -20,0 z"/><path fill="currentColor" d="M41 32 L42.4 35.6 L46 37 L42.4 38.4 L41 42 L39.6 38.4 L36 37 L39.6 35.6 Z"/></svg>Hooje Calendar</div><div class="legend">'+legend+'</div>'+mhead+dow+'<div class="grid" id="calGrid"></div></div><div class="hub-div"></div><div class="hub-col" id="hubCol"></div></div>';
   }
   document.getElementById("prevM").onclick=()=>{viewMonth.setMonth(viewMonth.getMonth()-1);buildMonthGrid();};
   document.getElementById("nextM").onclick=()=>{viewMonth.setMonth(viewMonth.getMonth()+1);buildMonthGrid();};
@@ -568,6 +613,7 @@ function quickAdd(text){
 
 /* ===== 일정 편집 모달 ===== */
 function openEditor(ev,preset){
+  if(ev&&ev.workout){var wc=(DB.counters||[]).find(function(c){return c.kind==="workout"&&c.workoutType===ev.workout.type;});if(wc){openWorkoutLog(wc.id,ev.id);return;}}
   const editing=!!ev;
   const e=ev?Object.assign({},ev):Object.assign({id:uid(),catId:"personal",title:"",date:(preset&&preset.date)||selDate,allDay:false,start:"09:00",end:"10:00",imp:1,repeat:"none",alarm:false,alarmMin:30,tag:"",note:""},preset||{});
   const catChips=DB.categories.map(c=>'<button type="button" class="chip'+(c.id===e.catId?" sel":"")+'" data-cat="'+c.id+'" style="color:'+c.color+'"><i class="dot" style="background:'+c.color+'"></i><span style="color:var(--text)">'+escapeHtml(c.name)+'</span></button>').join("");

@@ -218,18 +218,21 @@ textarea{resize:vertical;min-height:60px;}
 .ev .es{font-size:9px;color:#9aa0aa;}
 
 /* ===== 브랜드 (Hooje Calendar · 흑마 클래스컬러) ===== */
-.rail-brand{display:flex;flex-direction:column;align-items:center;gap:2px;margin-bottom:16px;color:var(--wow);}
+.rail-brand{display:flex;flex-direction:column;align-items:center;gap:2px;margin-bottom:16px;color:var(--gold);}
 .rail-brand i{font-size:23px;line-height:1;}
+.rail-brand .brand-ico{width:27px;height:27px;margin-bottom:2px;}
 .rail-brand b{font-size:13px;font-weight:500;line-height:1.1;}
 .rail-brand span{font-size:9px;letter-spacing:1.5px;line-height:1;opacity:.8;}
-.brandline{font-size:16px;font-weight:500;color:var(--wow);letter-spacing:.3px;margin-bottom:12px;display:flex;align-items:center;gap:7px;}
+.brandline{font-size:16px;font-weight:500;color:var(--gold);letter-spacing:.3px;margin-bottom:12px;display:flex;align-items:center;gap:7px;}
 .brandline i{font-size:18px;}
+.brandline .brand-ico{width:21px;height:21px;}
 @media (min-width:900px){ .brandline{display:none;} }
 
 /* ===== 로그인 화면 ===== */
 .login{position:fixed;inset:0;z-index:100;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:24px;}
 .login-card{text-align:center;max-width:320px;width:100%;}
-.login-mark{width:64px;height:64px;border-radius:18px;background:var(--surface4);color:var(--wow);font-size:32px;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;}
+.login-mark{width:64px;height:64px;border-radius:18px;background:var(--surface4);color:var(--gold);font-size:32px;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;}
+.login-mark .brand-ico{width:38px;height:38px;}
 .login-title{font-size:24px;font-weight:500;color:var(--wow);letter-spacing:.5px;}
 .login-sub{font-size:13px;color:var(--muted);margin-top:2px;margin-bottom:26px;}
 .login-btn{width:100%;background:var(--surface2);border:0.5px solid var(--line);color:var(--text);font-size:15px;padding:13px;border-radius:12px;display:flex;align-items:center;justify-content:center;gap:9px;}
