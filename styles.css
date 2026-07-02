@@ -368,3 +368,11 @@ textarea{resize:vertical;min-height:60px;}
 .dc-name{cursor:pointer;white-space:nowrap;}
 .dc-add{width:24px;height:24px;border-radius:6px;background:var(--surface4);border:1px solid;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center;font-weight:600;}
 .dc-add:hover{filter:brightness(1.25);}
+
+.focus-item{background:var(--surface3);border:0.5px solid var(--line);border-radius:9px;margin-bottom:5px;overflow:hidden;}
+.focus-head{display:flex;align-items:center;gap:8px;padding:8px 11px;cursor:pointer;}
+.focus-title{flex:1;font-size:13px;min-width:0;color:var(--text);}
+.focus-chev{color:var(--faint);font-size:15px;transition:transform .15s;flex-shrink:0;}
+.focus-chev.open{transform:rotate(180deg);}
+.focus-body{padding:2px 12px 11px 12px;font-size:12px;color:var(--text2);line-height:1.6;}
+.focus-actions{margin-top:8px;}

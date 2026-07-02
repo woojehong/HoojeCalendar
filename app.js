@@ -62,6 +62,7 @@ function defaultData(){
     expenses:[],expVendors:[],expItems:[],
     happyOn:false,happyLogs:[],happyMediaCats:["J","K","BJ","기타"],happyActors:[],happyPartners:[],
     goldLogs:[],goldBuyers:[],
+    focusList:[],
     expCats:[{id:"food",name:"식료품"},{id:"suppl",name:"영양제·건강"},{id:"living",name:"생활용품"},{id:"cloth",name:"의류"},{id:"hobby",name:"취미·콘텐츠"},{id:"eatout",name:"외식"},{id:"date",name:"데이트"},{id:"etc",name:"기타"}],
     wowChars:[{id:"hooje",name:"후제"},{id:"meo",name:"메오"},{id:"mago",name:"마고"},{id:"gro",name:"그로"},{id:"mutong",name:"무통"}],
     wowQuests:[
@@ -74,11 +75,11 @@ function defaultData(){
     health:{},
     hubBlocks:[
       {id:"stats",on:true},{id:"timeline",on:true},{id:"remain",on:true},{id:"daily",on:true},
-      {id:"weekGeneral",on:true,collapsed:true},{id:"weekWow",on:true,collapsed:true},{id:"counters",on:true,collapsed:true},{id:"health",on:false},{id:"upcoming",on:false},
+      {id:"weekGeneral",on:true,collapsed:true},{id:"weekWow",on:true,collapsed:true},{id:"counters",on:true,collapsed:true},{id:"focus",on:true,collapsed:false},{id:"health",on:false},{id:"upcoming",on:false},
     ],
   };
 }
-const BLOCK_NAMES={stats:"통계 요약",timeline:"이 날 일정 (타임라인)",remain:"오늘 일정",daily:"이 날 체크리스트 (일일)",weekGeneral:"이번 주 · 일반",weekWow:"이번 주 · 와우",counters:"카운터",health:"건강 요약",upcoming:"다가오는 일정 (3일)"};
+const BLOCK_NAMES={stats:"통계 요약",timeline:"이 날 일정 (타임라인)",remain:"오늘 일정",daily:"이 날 체크리스트 (일일)",weekGeneral:"이번 주 · 일반",weekWow:"이번 주 · 와우",counters:"카운터",focus:"Focus List",health:"건강 요약",upcoming:"다가오는 일정 (3일)"};
 
 let DB;
 function load(){}
@@ -90,6 +91,8 @@ function normalizeDB(){ if(!DB)return;
   if(DB.happyOn===undefined)DB.happyOn=false; if(!DB.happyLogs)DB.happyLogs=[]; if(!DB.happyMediaCats||!DB.happyMediaCats.length)DB.happyMediaCats=["J","K","BJ","기타"]; if(!DB.happyActors)DB.happyActors=[]; if(!DB.happyPartners)DB.happyPartners=[];
   if(!DB.goldLogs)DB.goldLogs=[]; if(!DB.goldBuyers)DB.goldBuyers=[];
   if(!DB.wowCollapse)DB.wowCollapse={};
+  if(!DB.focusList)DB.focusList=[];
+  if(!DB.hubBlocks.some(function(b){return b.id==="focus";})){DB.hubBlocks.push({id:"focus",on:true,collapsed:false});}
   if(!DB.categories.some(function(c){return c.id==="happy";}))DB.categories.push({id:"happy",name:"해피",color:"#ED93B1",secret:true});
   if(!DB.counters.some(function(c){return c.kind==="happy";}))DB.counters.push({id:"sajung",name:"해소",catId:"happy",period:"daily",kind:"happy",secret:true,fields:[]});
   if(!DB.hubBlocks.some(function(b){return b.id==="remain";})){var di=DB.hubBlocks.findIndex(function(b){return b.id==="daily";});DB.hubBlocks.splice(di>=0?di:DB.hubBlocks.length,0,{id:"remain",on:true});}
@@ -371,7 +374,7 @@ function blkRemaining(el){
   el.querySelectorAll("[data-ev]").forEach(function(x){x.onclick=function(){openEventPreview(x.dataset.ev,x);};});
 }
 function renderChkDesktop(host){
-  var allow={remain:1,daily:1,weekGeneral:1,weekWow:1,counters:1,health:1,upcoming:1};
+  var allow={remain:1,daily:1,weekGeneral:1,weekWow:1,counters:1,focus:1,health:1,upcoming:1};
   var html='<div class="chk-top"><button class="iconbtn" id="chkEdit" title="섹션 편집·순서"><i class="ti ti-adjustments-horizontal"></i></button></div>';
   DB.hubBlocks.forEach(function(b){if(b.on&&allow[b.id])html+='<div id="blk-'+b.id+'"></div>';});
   host.innerHTML=html;
@@ -471,6 +474,7 @@ function renderBlock(id,el){
   else if(id==="weekGeneral")blkWeekGen(el);
   else if(id==="weekWow")blkWeekWow(el);
   else if(id==="counters")blkCounters(el);
+  else if(id==="focus")blkFocus(el);
   else if(id==="health")blkHealth(el);
   else if(id==="upcoming")blkUpcoming(el);
 }
@@ -810,6 +814,36 @@ function openHubEdit(){
   root.querySelectorAll("[data-tg]").forEach(s=>s.onclick=()=>{const i=+s.dataset.tg;DB.hubBlocks[i].on=!DB.hubBlocks[i].on;save();refreshDay();openHubEdit();});
   root.querySelectorAll("[data-up]").forEach(b=>b.onclick=()=>{const i=+b.dataset.up;if(i>0){const a=DB.hubBlocks;const t=a[i-1];a[i-1]=a[i];a[i]=t;save();refreshDay();openHubEdit();}});
   root.querySelectorAll("[data-down]").forEach(b=>b.onclick=()=>{const i=+b.dataset.down;const a=DB.hubBlocks;if(i<a.length-1){const t=a[i+1];a[i+1]=a[i];a[i]=t;save();refreshDay();openHubEdit();}});
+}
+
+/* ===== Focus List ===== */
+function blkFocus(el){
+  var b=secState("focus");
+  var head=sectionHead("focus","Focus List","",{add:true});
+  if(b.collapsed){el.innerHTML=head;bindSectionHead(el,"focus",function(){openFocusEditor(null);});return;}
+  var fl=DB.focusList||[];
+  var rows=fl.map(function(f){
+    return '<div class="focus-item"><div class="focus-head" data-ftog="'+f.id+'"><span class="focus-title clip">'+escapeHtml(f.title)+'</span><i class="ti ti-chevron-down focus-chev"></i></div><div class="focus-body" data-fbody="'+f.id+'" hidden>'+escapeHtml(f.detail||"").replace(/\n/g,"<br>")+'<div class="focus-actions"><button class="btn sm ghost" data-fedit="'+f.id+'">편집</button></div></div></div>';
+  }).join("");
+  el.innerHTML=head+(rows||emptyHtml("＋로 추가하거나 수진이한테 말하세요"));
+  bindSectionHead(el,"focus",function(){openFocusEditor(null);});
+  el.querySelectorAll("[data-ftog]").forEach(function(x){x.onclick=function(){var body=el.querySelector('[data-fbody="'+x.dataset.ftog+'"]');if(body)body.hidden=!body.hidden;var ch=x.querySelector(".focus-chev");if(ch)ch.classList.toggle("open");};});
+  el.querySelectorAll("[data-fedit]").forEach(function(x){x.onclick=function(e){e.stopPropagation();openFocusEditor((DB.focusList||[]).find(function(z){return z.id===x.dataset.fedit;}));};});
+}
+function openFocusEditor(f){
+  var editing=!!f;var e=f?Object.assign({},f):{id:uid(),title:"",detail:""};
+  var root=document.getElementById("modalRoot");
+  root.innerHTML='<div class="sheet"><div class="sheet-h"><span class="title">'+(editing?"Focus 편집":"Focus 추가")+'</span><button class="x" id="mX">×</button></div>'+
+    '<div class="field"><label>제목</label><input type="text" id="foTitle" value="'+escapeHtml(e.title)+'" placeholder="예: 맥미니 M4 중고 구매"/></div>'+
+    '<div class="field"><label>상세 (수진이가 매일 챙길 내용)</label><textarea id="foDetail" rows="6" placeholder="무엇을 어떻게 체크·보고할지">'+escapeHtml(e.detail||"")+'</textarea></div>'+
+    '<div class="sheet-actions">'+(editing?'<button class="btn danger" id="foDel">삭제</button>':'')+'<button class="btn gold" id="foSave">저장</button></div></div>';
+  root.hidden=false;root.onclick=function(x){if(x.target===root)closeModal();};
+  var q=function(sel){return root.querySelector(sel);};q("#mX").onclick=closeModal;
+  q("#foSave").onclick=function(){var title=q("#foTitle").value.trim();if(!title){toast("제목을 입력해주세요");return;}
+    var rec={id:e.id,title:title,detail:q("#foDetail").value.trim()};
+    DB.focusList=DB.focusList||[];var i=DB.focusList.findIndex(function(x){return x.id===e.id;});if(i>=0)DB.focusList[i]=rec;else DB.focusList.push(rec);
+    save();closeModal();refreshDay();toast(editing?"수정됨":"추가됨");};
+  var del=q("#foDel");if(del)del.onclick=function(){if(confirm("이 Focus 항목을 삭제할까요?")){DB.focusList=(DB.focusList||[]).filter(function(x){return x.id!==e.id;});save();closeModal();refreshDay();toast("삭제됨");}};
 }
 
 /* ===== 익스펜스 ===== */
