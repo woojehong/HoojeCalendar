@@ -586,11 +586,17 @@ function showApp(){
 }
 function boot(){
   firebase.initializeApp(window.FIREBASE_CONFIG);
+  console.log("HOOJE build: auth-popup-v3");
   FB.auth=firebase.auth(); FB.db=firebase.firestore(); FB.provider=new firebase.auth.GoogleAuthProvider();
   var lb=document.getElementById("loginBtn");
-  if(lb) lb.onclick=function(){ FB.auth.signInWithRedirect(FB.provider); };
   try{ FB.auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL); }catch(e){}
-  FB.auth.getRedirectResult().catch(function(e){ if(e&&e.code) toast("로그인 오류: "+e.code); });
+  if(lb) lb.onclick=function(){
+    FB.auth.signInWithPopup(FB.provider).catch(function(e){
+      var m="로그인 실패: "+(e.code||e.message);
+      var n=document.querySelector(".login-note"); if(n){ n.textContent=m; n.style.color="#e2554e"; }
+      toast(m);
+    });
+  };
   FB.auth.onAuthStateChanged(function(user){ if(user){ showApp(); } else { showLogin(); } });
 }
 boot();
