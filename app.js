@@ -584,19 +584,25 @@ function showApp(){
     if(!started){ started=true; bindNav(); switchTab("home"); } else { render(curTab); }
   }, function(err){ toast("동기화 오류: "+(err.code||err.message)); });
 }
+function loginErr(m){ var n=document.querySelector(".login-note"); if(n){ n.textContent=m; n.style.color="#e2554e"; } }
 function boot(){
   firebase.initializeApp(window.FIREBASE_CONFIG);
-  console.log("HOOJE build: auth-popup-v3");
-  FB.auth=firebase.auth(); FB.db=firebase.firestore(); FB.provider=new firebase.auth.GoogleAuthProvider();
-  var lb=document.getElementById("loginBtn");
+  console.log("HOOJE build: auth-idpin-v5");
+  FB.auth=firebase.auth(); FB.db=firebase.firestore();
   try{ FB.auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL); }catch(e){}
-  if(lb) lb.onclick=function(){
-    FB.auth.signInWithPopup(FB.provider).catch(function(e){
-      var m="로그인 실패: "+(e.code||e.message);
-      var n=document.querySelector(".login-note"); if(n){ n.textContent=m; n.style.color="#e2554e"; }
-      toast(m);
+  var lb=document.getElementById("loginBtn"), pinEl=document.getElementById("loginPin");
+  function doLogin(){
+    var idEl=document.getElementById("loginId");
+    var id=(idEl&&idEl.value||"").trim().toLowerCase();
+    var pin=(pinEl&&pinEl.value)||"";
+    if(!id||!pin){ loginErr("아이디와 PIN을 입력해요"); return; }
+    FB.auth.signInWithEmailAndPassword(id+"@hooje.app", pin).catch(function(e){
+      var bad=(e.code==="auth/wrong-password"||e.code==="auth/invalid-credential"||e.code==="auth/user-not-found"||e.code==="auth/invalid-email");
+      loginErr(bad?"아이디 또는 PIN이 틀려요":("오류: "+(e.code||e.message)));
     });
-  };
+  }
+  if(lb) lb.onclick=doLogin;
+  if(pinEl) pinEl.addEventListener("keydown",function(e){ if(e.key==="Enter") doLogin(); });
   FB.auth.onAuthStateChanged(function(user){ if(user){ showApp(); } else { showLogin(); } });
 }
 boot();
