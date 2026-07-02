@@ -61,6 +61,7 @@ function defaultData(){
     counterLogs:[],
     expenses:[],expVendors:[],expItems:[],
     happyOn:false,happyLogs:[],happyMediaCats:["J","K","BJ","기타"],happyActors:[],happyPartners:[],
+    goldLogs:[],goldBuyers:[],
     expCats:[{id:"food",name:"식료품"},{id:"suppl",name:"영양제·건강"},{id:"living",name:"생활용품"},{id:"cloth",name:"의류"},{id:"hobby",name:"취미·콘텐츠"},{id:"eatout",name:"외식"},{id:"date",name:"데이트"},{id:"etc",name:"기타"}],
     wowChars:[{id:"hooje",name:"후제"},{id:"meo",name:"메오"},{id:"mago",name:"마고"},{id:"gro",name:"그로"},{id:"mutong",name:"무통"}],
     wowQuests:[
@@ -87,6 +88,7 @@ function normalizeDB(){ if(!DB)return;
   if(!DB.expenses)DB.expenses=[]; if(!DB.expVendors)DB.expVendors=[]; if(!DB.expItems)DB.expItems=[];
   if(!DB.expCats||!DB.expCats.length)DB.expCats=[{id:"food",name:"식료품"},{id:"suppl",name:"영양제·건강"},{id:"living",name:"생활용품"},{id:"cloth",name:"의류"},{id:"hobby",name:"취미·콘텐츠"},{id:"eatout",name:"외식"},{id:"date",name:"데이트"},{id:"etc",name:"기타"}];
   if(DB.happyOn===undefined)DB.happyOn=false; if(!DB.happyLogs)DB.happyLogs=[]; if(!DB.happyMediaCats||!DB.happyMediaCats.length)DB.happyMediaCats=["J","K","BJ","기타"]; if(!DB.happyActors)DB.happyActors=[]; if(!DB.happyPartners)DB.happyPartners=[];
+  if(!DB.goldLogs)DB.goldLogs=[]; if(!DB.goldBuyers)DB.goldBuyers=[];
   if(!DB.categories.some(function(c){return c.id==="happy";}))DB.categories.push({id:"happy",name:"해피",color:"#ED93B1",secret:true});
   if(!DB.counters.some(function(c){return c.kind==="happy";}))DB.counters.push({id:"sajung",name:"사정",catId:"happy",period:"daily",kind:"happy",secret:true,fields:[]});
   if(!DB.hubBlocks.some(function(b){return b.id==="remain";})){var di=DB.hubBlocks.findIndex(function(b){return b.id==="daily";});DB.hubBlocks.splice(di>=0?di:DB.hubBlocks.length,0,{id:"remain",on:true});}
@@ -317,6 +319,7 @@ let selDate=dayKeyNow();
 var expMonth=ymd(todayD()).slice(0,7);
 var happyMonth=ymd(todayD()).slice(0,7);
 var statPeriod="month";
+var goldPeriod="month";
 
 /* ===== 홈 (달력 + 허브) ===== */
 function isDesktop(){ return window.matchMedia("(min-width:900px)").matches; }
@@ -694,13 +697,14 @@ function openEditor(ev,preset){
   const catChips=DB.categories.filter(function(c){return !c.secret||DB.happyOn;}).map(c=>'<button type="button" class="chip'+(c.id===e.catId?" sel":"")+'" data-cat="'+c.id+'" style="color:'+c.color+'"><i class="dot" style="background:'+c.color+'"></i><span style="color:var(--text)">'+escapeHtml(c.name)+'</span></button>').join("");
   const impBtn=i=>'<button type="button" class="imp'+(e.imp===i?" sel":"")+'" data-imp="'+i+'"><span class="imp-bar" style="height:'+(8+i*3)+'px"></span>'+["","보통","높음","매우 높음"][i]+'</button>';
   const alarmOpts=[0,5,10,30,60,120,1440].map(v=>'<option value="'+v+'"'+((e.alarmMin||30)===v?" selected":"")+'>'+(v===0?"정시":v>=1440?"1일 전":v>=60?(v/60)+"시간 전":v+"분 전")+'</option>').join("");
+  var raidLog=(DB.goldLogs||[]).find(function(x){return x.type==="raid"&&x.eventId===e.id;});var raidGoldVal=raidLog?raidLog.gold:"";var selKind=e.wowKind||"raid";
   var evExp=(DB.expenses||[]).filter(function(x){return x.eventId===e.id;});
   var evRowsHtml=(evExp.length?evExp.map(function(x){return expRowHTML(x.item,x.amount);}).join(""):expRowHTML("",""));
   var ecOpts='<option value=""'+(evExp.length?"":" selected")+'>— 분류 선택 —</option>'+(DB.expCats||[]).map(function(c){return '<option value="'+c.id+'"'+(((evExp[0]||{}).catId)===c.id?" selected":"")+'>'+escapeHtml(c.name)+'</option>';}).join("");
   const root=document.getElementById("modalRoot");
   root.innerHTML='<div class="sheet"><div class="sheet-h"><span class="title">'+(editing?"일정 편집":"새 일정")+'</span><button class="x" id="mX">×</button></div>'+
     '<div class="field"><label>제목</label><input type="text" id="fTitle" value="'+escapeHtml(e.title)+'" placeholder="일정 이름"/></div>'+
-    '<div class="field"><label>카테고리</label><div class="chips" id="fCats">'+catChips+'</div></div>'+
+    '<div class="field"><label>카테고리</label><div class="chips" id="fCats">'+catChips+'</div></div>'+'<div class="field" id="fWowKindW"'+(e.catId==="wow"?"":' style="display:none"')+'><label>와우 종류</label><select id="fWowKind"><option value="raid"'+(selKind==="raid"?" selected":"")+'>레이드</option><option value="mplus"'+(selKind==="mplus"?" selected":"")+'>쐐기</option><option value="guild"'+(selKind==="guild"?" selected":"")+'>길드이벤트</option><option value="etc"'+(selKind==="etc"?" selected":"")+'>기타</option></select></div>'+'<div class="field" id="fRaidGoldW"'+((e.catId==="wow"&&selKind==="raid")?"":' style="display:none"')+'><label>분배금 (골드) · 선택</label><input type="number" inputmode="numeric" id="fRaidGold" value="'+(raidGoldVal===""?"":raidGoldVal)+'" placeholder="비우면 나중에 확인"/></div>'+
     '<div class="field"><label>중요도 (막대 두께)</label><div class="imp-opt" id="fImp">'+impBtn(1)+impBtn(2)+impBtn(3)+'</div></div>'+
     '<div class="toggle"><span class="lbl">종일</span><div class="sw'+(e.allDay?" on":"")+'" id="fAllday"><i></i></div></div>'+
     '<div class="row2"><div class="field"><label>시작일</label><input type="date" id="fDate" value="'+e.date+'"/></div>'+
@@ -718,7 +722,9 @@ function openEditor(ev,preset){
   root.hidden=false;root.onclick=ev2=>{if(ev2.target===root)closeModal();};
   const q=s=>root.querySelector(s);q("#mX").onclick=closeModal;
   let selCat=e.catId,selImp=e.imp;
-  q("#fCats").querySelectorAll(".chip").forEach(b=>b.onclick=()=>{selCat=b.dataset.cat;q("#fCats").querySelectorAll(".chip").forEach(x=>x.classList.remove("sel"));b.classList.add("sel");});
+  function updWow(){var isW=(selCat==="wow");var kw=q("#fWowKindW");if(kw)kw.style.display=isW?"":"none";var rw=q("#fRaidGoldW");if(rw)rw.style.display=(isW&&q("#fWowKind").value==="raid")?"":"none";}
+  q("#fCats").querySelectorAll(".chip").forEach(b=>b.onclick=()=>{selCat=b.dataset.cat;q("#fCats").querySelectorAll(".chip").forEach(x=>x.classList.remove("sel"));b.classList.add("sel");updWow();});
+  var _fwk=q("#fWowKind");if(_fwk)_fwk.onchange=updWow;
   q("#fImp").querySelectorAll(".imp").forEach(b=>b.onclick=()=>{selImp=parseInt(b.dataset.imp,10);q("#fImp").querySelectorAll(".imp").forEach(x=>x.classList.remove("sel"));b.classList.add("sel");});
   const sA=q("#fAllday"),sM=q("#fMulti"),sL=q("#fAlarm");
   sA.onclick=()=>{sA.classList.toggle("on");q("#fTimes").style.display=sA.classList.contains("on")?"none":"grid";};
@@ -728,10 +734,12 @@ function openEditor(ev,preset){
   q("#mSave").onclick=()=>{const title=q("#fTitle").value.trim();if(!title){toast("제목을 입력해주세요");return;}
     const allDay=sA.classList.contains("on"),multi=sM.classList.contains("on");
     const rec={id:e.id,catId:selCat,title,date:q("#fDate").value,allDay,imp:selImp,repeat:q("#fRepeat").value,tag:q("#fTag").value.trim(),note:q("#fNote").value.trim(),alarm:sL.classList.contains("on"),alarmMin:parseInt(q("#fAlarmMin").value,10)};
+    if(selCat==="wow")rec.wowKind=q("#fWowKind").value;
     if(multi){rec.endDate=q("#fEndDate").value;if(parseYmd(rec.endDate)<parseYmd(rec.date))rec.endDate=rec.date;}
     if(!allDay){rec.start=q("#fStart").value;rec.end=q("#fEnd").value;}
     const i=DB.events.findIndex(x=>x.id===e.id);if(i>=0)DB.events[i]=rec;else DB.events.push(rec);
     (function(){var exRows=readExpRows(q("#evItems"));DB.expenses=(DB.expenses||[]).filter(function(x){return x.eventId!==e.id;});if(exRows.length){var ecat=q("#evExpCat").value||"etc";DB.expItems=DB.expItems||[];exRows.forEach(function(rr){if(!DB.expItems.some(function(z){return z.name===rr.item;}))DB.expItems.push({id:uid(),name:rr.item});DB.expenses.push({id:uid(),date:rec.date,vendor:rec.title,item:rr.item,amount:rr.amount,catId:ecat,source:"schedule",eventId:e.id,orderId:e.id});});}})();
+    (function(){DB.goldLogs=(DB.goldLogs||[]).filter(function(x){return !(x.type==="raid"&&x.eventId===e.id);});var _rg=q("#fRaidGold");if(selCat==="wow"&&q("#fWowKind").value==="raid"&&_rg&&_rg.value.trim()!==""){DB.goldLogs.push({id:uid(),type:"raid",date:rec.date,gold:Number(_rg.value)||0,eventId:e.id});}})();
     save();closeModal();selDate=rec.date;viewMonth=new Date(parseYmd(rec.date).getFullYear(),parseYmd(rec.date).getMonth(),1);renderHome();toast(i>=0?"수정됨":"추가됨");};
   const del=q("#mDel");if(del)del.onclick=()=>{if(confirm("“"+e.title+"” 일정을 삭제할까요?")){DB.events=DB.events.filter(x=>x.id!==e.id);save();closeModal();renderHome();toast("삭제됨");}};
 }
@@ -975,6 +983,78 @@ function openDetailDay(dstr){
   ov.querySelectorAll("[data-didx]").forEach(function(x){x.onclick=function(){var r=rows[+x.dataset.didx];close();var a=r.act;if(a.ev)openEditor(masterOf(a.ev));else if(a.clog)openCounterLog(a.clog,a.clid);else if(a.rt)openRoutineEditor(DB.routines.find(function(z){return z.id===a.rt;}));else if(a.hl)openHappyLog(a.hl);};});
 }
 
+/* ===== 골드 (와우 골드 장부) ===== */
+function goldPred(){var t=dayKeyNow();if(goldPeriod==="month")return function(ds){return (ds||"").slice(0,7)===t.slice(0,7);};if(goldPeriod==="year")return function(ds){return (ds||"").slice(0,4)===t.slice(0,4);};return function(){return true;};}
+function saleRatio(l){return l.gold?Math.round((l.cash*100/l.gold)*10)/10:0;}
+function gnum(n){return (Number(n)||0).toLocaleString("ko-KR");}
+function missingRaidGold(){var today=dayKeyNow();return (DB.events||[]).filter(function(ev){if(ev.catId!=="wow"||ev.wowKind!=="raid")return false;if(ev.date>today)return false;return !(DB.goldLogs||[]).some(function(x){return x.type==="raid"&&x.eventId===ev.id;});});}
+function renderGoldPage(){
+  var host=document.getElementById("tab-gold");if(!host)return;
+  var pred=goldPred();
+  var logs=(DB.goldLogs||[]).filter(function(l){return pred(l.date);});
+  var earned=0,sold=0,cash=0,sales=[];
+  logs.forEach(function(l){if(l.type==="raid")earned+=Number(l.gold)||0;else if(l.type==="craft")earned+=(Number(l.fee)||0)+(Number(l.material)||0);else if(l.type==="sale"){sold+=Number(l.gold)||0;cash+=Number(l.cash)||0;if(l.gold)sales.push(saleRatio(l));}});
+  var segs=[["month","이번달"],["year","올해"],["all","올타임"]].map(function(p){return '<button data-gp="'+p[0]+'" class="'+(goldPeriod===p[0]?"sel":"")+'">'+p[1]+'</button>';}).join("");
+  var rateLine="";
+  if(sales.length){var avg=Math.round(sales.reduce(function(a,b){return a+b;},0)/sales.length*10)/10;var mn=Math.min.apply(null,sales);var mx=Math.max.apply(null,sales);rateLine='<div class="gold-rate">시세 평균 <b>1:'+avg+'</b> · 최고 1:'+mx+' · 최저 1:'+mn+'</div>';}
+  var sorted=logs.slice().sort(function(a,b){return b.date.localeCompare(a.date)||String(b.id).localeCompare(String(a.id));});
+  var byDate={};sorted.forEach(function(l){(byDate[l.date]=byDate[l.date]||[]).push(l);});
+  var dates=Object.keys(byDate).sort(function(a,b){return b.localeCompare(a);});
+  var rowsHtml=dates.map(function(d){var dd=parseYmd(d);
+    var items=byDate[d].map(function(l){
+      if(l.type==="raid")return '<div class="crow" data-graid="'+(l.eventId||"")+'" style="cursor:pointer"><span class="evdot"><i style="background:#8788EE"></i></span><span class="ctitle clip">레이드 분배금</span><span class="gold-v">'+gnum(l.gold)+'G</span></div>';
+      if(l.type==="craft")return '<div class="crow" data-gcraft="'+l.id+'" style="cursor:pointer"><span class="evdot"><i style="background:#C9A84C"></i></span><span class="ctitle clip">제작 정산 <small style="color:var(--faint)">수수료 '+gnum(l.fee)+' · 재료 '+gnum(l.material)+'</small></span><span class="gold-v">'+gnum((Number(l.fee)||0)+(Number(l.material)||0))+'G</span></div>';
+      return '<div class="crow" data-gsale="'+l.id+'" style="cursor:pointer"><span class="evdot"><i style="background:#46d17f"></i></span><span class="ctitle clip">골드 판매 · '+escapeHtml(l.buyer||"")+' <small style="color:var(--faint)">'+gnum(l.gold)+'G · 1:'+saleRatio(l)+'</small></span><span class="gold-v" style="color:var(--green)">'+won(l.cash)+'</span></div>';
+    }).join("");
+    return '<div class="charlabel">'+(dd.getMonth()+1)+'/'+dd.getDate()+' '+DOW_KO[dd.getDay()]+'</div>'+items;
+  }).join("");
+  host.innerHTML='<div class="page-head"><div class="page-title">골드</div><div style="display:flex;gap:6px"><button class="btn sm ghost" id="goldCraftAdd">＋ 제작</button><button class="btn gold sm" id="goldSaleAdd">＋ 판매</button></div></div>'+
+    '<div class="seg g" style="margin-bottom:14px">'+segs+'</div>'+
+    '<div class="stats"><div class="stat"><b style="color:var(--wow)">'+gnum(earned)+'</b><span>번 골드</span></div><div class="stat"><b style="color:var(--gold-bright)">'+gnum(sold)+'</b><span>판 골드</span></div><div class="stat"><b style="color:var(--green)">'+won(cash)+'</b><span>번 현금</span></div></div>'+
+    rateLine+
+    (rowsHtml||emptyHtml("이 기간 골드 기록 없음"));
+  host.querySelectorAll("[data-gp]").forEach(function(b){b.onclick=function(){goldPeriod=b.dataset.gp;renderGoldPage();};});
+  document.getElementById("goldCraftAdd").onclick=function(){openGoldCraft(null);};
+  document.getElementById("goldSaleAdd").onclick=function(){openGoldSale(null);};
+  host.querySelectorAll("[data-gcraft]").forEach(function(x){x.onclick=function(){openGoldCraft(x.dataset.gcraft);};});
+  host.querySelectorAll("[data-gsale]").forEach(function(x){x.onclick=function(){openGoldSale(x.dataset.gsale);};});
+  host.querySelectorAll("[data-graid]").forEach(function(x){x.onclick=function(){if(x.dataset.graid&&masterOf(x.dataset.graid))openEventPreview(x.dataset.graid);else toast("연결된 일정 없음");};});
+}
+function openGoldCraft(logId){
+  var ex=logId?(DB.goldLogs||[]).find(function(l){return l.id===logId;}):null;
+  var wed=ymd(addDays(parseYmd(keyWeekGen(dayKeyNow())),2));
+  var e=ex?Object.assign({},ex):{id:uid(),type:"craft",date:wed,fee:"",material:""};
+  var root=document.getElementById("modalRoot");
+  root.innerHTML='<div class="sheet"><div class="sheet-h"><span class="title">제작 정산</span><button class="x" id="mX">×</button></div>'+
+    '<div class="field"><label>날짜 (정산일)</label><input type="date" id="gcDate" value="'+e.date+'"/></div>'+
+    '<div class="field"><label>수수료 (골드)</label><input type="number" inputmode="numeric" id="gcFee" value="'+(e.fee===""?"":e.fee)+'" placeholder="0"/></div>'+
+    '<div class="field"><label>재료값 (골드)</label><input type="number" inputmode="numeric" id="gcMat" value="'+(e.material===""?"":e.material)+'" placeholder="0"/></div>'+
+    '<div class="sheet-actions">'+(ex?'<button class="btn danger" id="gcDel">삭제</button>':'')+'<button class="btn gold" id="gcSave">저장</button></div></div>';
+  root.hidden=false;root.onclick=function(x){if(x.target===root)closeModal();};
+  var q=function(sel){return root.querySelector(sel);};q("#mX").onclick=closeModal;
+  q("#gcSave").onclick=function(){var rec={id:e.id,type:"craft",date:q("#gcDate").value,fee:Number(q("#gcFee").value)||0,material:Number(q("#gcMat").value)||0};DB.goldLogs=DB.goldLogs||[];var i=DB.goldLogs.findIndex(function(x){return x.id===e.id;});if(i>=0)DB.goldLogs[i]=rec;else DB.goldLogs.push(rec);save();closeModal();renderGoldPage();toast(ex?"수정됨":"추가됨");};
+  var del=q("#gcDel");if(del)del.onclick=function(){DB.goldLogs=(DB.goldLogs||[]).filter(function(x){return x.id!==e.id;});save();closeModal();renderGoldPage();toast("삭제됨");};
+}
+function openGoldSale(logId){
+  var ex=logId?(DB.goldLogs||[]).find(function(l){return l.id===logId;}):null;
+  var e=ex?Object.assign({},ex):{id:uid(),type:"sale",date:dayKeyNow(),buyer:"",gold:"",cash:""};
+  var bOpts=(DB.goldBuyers||[]).map(function(b){return '<option value="'+escapeHtml(b.name)+'"></option>';}).join("");
+  var root=document.getElementById("modalRoot");
+  root.innerHTML='<div class="sheet"><div class="sheet-h"><span class="title">골드 판매</span><button class="x" id="mX">×</button></div>'+
+    '<div class="field"><label>날짜</label><input type="date" id="gsDate" value="'+e.date+'"/></div>'+
+    '<div class="field"><label>판매자 (송금인 본명)</label><input type="text" id="gsBuyer" list="gsBuyerList" value="'+escapeHtml(e.buyer||"")+'" placeholder="이름"/><datalist id="gsBuyerList">'+bOpts+'</datalist></div>'+
+    '<div class="field"><label>판매한 골드</label><input type="number" inputmode="numeric" id="gsGold" value="'+(e.gold===""?"":e.gold)+'" placeholder="예: 5000000"/></div>'+
+    '<div class="field"><label>받은 현금 (원)</label><input type="number" inputmode="numeric" id="gsCash" value="'+(e.cash===""?"":e.cash)+'" placeholder="예: 400000"/></div>'+
+    '<div class="gold-rate" id="gsRate">시세 —</div>'+
+    '<div class="sheet-actions">'+(ex?'<button class="btn danger" id="gsDel">삭제</button>':'')+'<button class="btn gold" id="gsSave">저장</button></div></div>';
+  root.hidden=false;root.onclick=function(x){if(x.target===root)closeModal();};
+  var q=function(sel){return root.querySelector(sel);};q("#mX").onclick=closeModal;
+  function upd(){var g=Number(q("#gsGold").value)||0;var c=Number(q("#gsCash").value)||0;q("#gsRate").innerHTML=(g&&c)?('시세 <b>1:'+(Math.round(c*100/g*10)/10)+'</b> <small style="color:var(--faint)">(100만골당 '+gnum(Math.round(c/(g/1000000)))+'원)</small>'):'시세 —';}
+  q("#gsGold").addEventListener("input",upd);q("#gsCash").addEventListener("input",upd);upd();
+  q("#gsSave").onclick=function(){var buyer=q("#gsBuyer").value.trim();var rec={id:e.id,type:"sale",date:q("#gsDate").value,buyer:buyer,gold:Number(q("#gsGold").value)||0,cash:Number(q("#gsCash").value)||0};if(!rec.gold||!rec.cash){toast("골드와 현금을 입력해주세요");return;}DB.goldBuyers=DB.goldBuyers||[];if(buyer&&!DB.goldBuyers.some(function(b){return b.name===buyer;}))DB.goldBuyers.push({id:uid(),name:buyer});DB.goldLogs=DB.goldLogs||[];var i=DB.goldLogs.findIndex(function(x){return x.id===e.id;});if(i>=0)DB.goldLogs[i]=rec;else DB.goldLogs.push(rec);save();closeModal();renderGoldPage();toast(ex?"수정됨":"추가됨");};
+  var del=q("#gsDel");if(del)del.onclick=function(){DB.goldLogs=(DB.goldLogs||[]).filter(function(x){return x.id!==e.id;});save();closeModal();renderGoldPage();toast("삭제됨");};
+}
+
 /* ===== 통계 ===== */
 function statRange(){
   var today=dayKeyNow();
@@ -1121,12 +1201,12 @@ function switchTab(name){
   document.querySelectorAll(".tab").forEach(s=>s.hidden=s.id!=="tab-"+name);
   document.querySelectorAll("#railNav button,#tabbar button[data-tab]").forEach(b=>b.classList.toggle("active",b.dataset.tab===name));
   updateHappyUI();
-  if(name==="home")renderHome();else if(name==="expense")renderExpensePage();else if(name==="happy")renderHappyPage();else if(name==="stats")renderStatsPage();else if(name==="settings")renderSettings();
+  if(name==="home")renderHome();else if(name==="expense")renderExpensePage();else if(name==="gold")renderGoldPage();else if(name==="happy")renderHappyPage();else if(name==="stats")renderStatsPage();else if(name==="settings")renderSettings();
 }
 let toastTimer=null;
 function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.hidden=true,2200);}
 var FB={}, lastJson=null, started=false;
-function render(name){ updateHappyUI(); if(name==="home")renderHome(); else if(name==="expense")renderExpensePage(); else if(name==="happy")renderHappyPage(); else if(name==="stats")renderStatsPage(); else if(name==="settings")renderSettings(); }
+function render(name){ updateHappyUI(); if(name==="home")renderHome(); else if(name==="expense")renderExpensePage(); else if(name==="gold")renderGoldPage(); else if(name==="happy")renderHappyPage(); else if(name==="stats")renderStatsPage(); else if(name==="settings")renderSettings(); }
 function bindNav(){
   document.querySelectorAll("#railNav button,#tabbar button[data-tab]").forEach(function(b){ b.onclick=function(){switchTab(b.dataset.tab);}; });
   document.getElementById("fab").onclick=function(){openEditor(null,{date:selDate});};

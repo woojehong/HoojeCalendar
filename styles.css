@@ -175,6 +175,9 @@ button{font-family:inherit;cursor:pointer;}
 .exp-cat-n{color:var(--text2);}
 .exp-cat-v{color:var(--muted);}
 .exp-amt{margin-left:auto;font-size:13px;font-weight:500;color:var(--text);flex-shrink:0;}
+.gold-v{margin-left:auto;font-size:13px;font-weight:500;color:var(--text);flex-shrink:0;}
+.gold-rate{background:var(--surface2);border:0.5px solid var(--line);border-radius:10px;padding:9px 13px;font-size:12px;color:var(--muted);margin-bottom:12px;}
+.gold-rate b{color:var(--gold-bright);font-weight:500;}
 .detail-overlay{position:fixed;inset:0;background:var(--bg);z-index:60;overflow-y:auto;}
 .d-head{position:sticky;top:0;background:var(--bg);display:flex;align-items:center;gap:11px;padding:13px 16px;border-bottom:0.5px solid var(--line);z-index:1;}
 .d-back{background:var(--surface2);border:0.5px solid var(--line);color:var(--text2);width:34px;height:34px;border-radius:9px;font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
