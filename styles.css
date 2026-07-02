@@ -360,5 +360,5 @@ textarea{resize:vertical;min-height:60px;}
 .gdate{font-size:12px;font-weight:500;color:var(--text);margin:11px 2px 6px;}
 .det-scroll{height:calc(100vh - 58px);overflow-y:auto;}
 .det-tl{max-width:720px;margin:0 auto;}
-.dmark{position:absolute;left:46px;right:8px;border-top:1.5px dashed;pointer-events:none;}
-.dmark-l{position:absolute;right:0;top:-11px;font-size:11px;padding:2px 8px;border-radius:6px;white-space:nowrap;pointer-events:auto;cursor:pointer;font-weight:500;max-width:66%;overflow:hidden;text-overflow:ellipsis;}
+.dmark{position:absolute;right:8px;left:auto;height:0;pointer-events:none;}
+.dmark-l{position:absolute;right:0;top:-10px;font-size:11px;padding:2px 9px;border-radius:2px;white-space:nowrap;pointer-events:auto;cursor:pointer;font-weight:500;max-width:70vw;overflow:hidden;text-overflow:ellipsis;}
