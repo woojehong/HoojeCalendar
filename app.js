@@ -37,6 +37,7 @@ function defaultData(){
       {id:"wow",name:"와우",color:"#8788EE"},
       {id:"work",name:"업무",color:"#9ba1ab"},
       {id:"ai",name:"AI",color:"#C9A84C"},
+      {id:"happy",name:"해피",color:"#ED93B1",secret:true},
     ],
     events:[
       {id:uid(),catId:"health",title:"아침 러닝",date:rel(0),allDay:false,start:"07:30",end:"08:30",imp:1,repeat:"none"},
@@ -58,6 +59,9 @@ function defaultData(){
     routineDone:{},
     counters:[],
     counterLogs:[],
+    expenses:[],expVendors:[],expItems:[],
+    happyOn:false,happyLogs:[],happyMediaCats:["J","K","BJ","기타"],happyActors:[],happyPartners:[],
+    expCats:[{id:"food",name:"식료품"},{id:"suppl",name:"영양제·건강"},{id:"living",name:"생활용품"},{id:"cloth",name:"의류"},{id:"hobby",name:"취미·콘텐츠"},{id:"eatout",name:"외식"},{id:"date",name:"데이트"},{id:"etc",name:"기타"}],
     wowChars:[{id:"hooje",name:"후제"},{id:"meo",name:"메오"},{id:"mago",name:"마고"},{id:"gro",name:"그로"},{id:"mutong",name:"무통"}],
     wowQuests:[
       {id:uid(),charId:"hooje",title:"신화레이드",type:"check"},
@@ -80,12 +84,19 @@ function load(){}
 function save(){ if(!FB.docRef){return;} lastJson=JSON.stringify(DB); FB.docRef.set({json:lastJson,updatedAt:new Date().toISOString()}).catch(function(e){toast("저장 실패: "+(e.code||e.message));}); }
 function normalizeDB(){ if(!DB)return;
   if(!DB.counters)DB.counters=[]; if(!DB.counterLogs)DB.counterLogs=[]; if(!DB.hubBlocks)DB.hubBlocks=[];
+  if(!DB.expenses)DB.expenses=[]; if(!DB.expVendors)DB.expVendors=[]; if(!DB.expItems)DB.expItems=[];
+  if(!DB.expCats||!DB.expCats.length)DB.expCats=[{id:"food",name:"식료품"},{id:"suppl",name:"영양제·건강"},{id:"living",name:"생활용품"},{id:"cloth",name:"의류"},{id:"hobby",name:"취미·콘텐츠"},{id:"eatout",name:"외식"},{id:"date",name:"데이트"},{id:"etc",name:"기타"}];
+  if(DB.happyOn===undefined)DB.happyOn=false; if(!DB.happyLogs)DB.happyLogs=[]; if(!DB.happyMediaCats||!DB.happyMediaCats.length)DB.happyMediaCats=["J","K","BJ","기타"]; if(!DB.happyActors)DB.happyActors=[]; if(!DB.happyPartners)DB.happyPartners=[];
+  if(!DB.categories.some(function(c){return c.id==="happy";}))DB.categories.push({id:"happy",name:"해피",color:"#ED93B1",secret:true});
   if(!DB.hubBlocks.some(function(b){return b.id==="remain";})){var di=DB.hubBlocks.findIndex(function(b){return b.id==="daily";});DB.hubBlocks.splice(di>=0?di:DB.hubBlocks.length,0,{id:"remain",on:true});}
   if(!DB.hubBlocks.some(function(b){return b.id==="counters";})){var wi=DB.hubBlocks.findIndex(function(b){return b.id==="weekWow";});DB.hubBlocks.splice(wi>=0?wi+1:DB.hubBlocks.length,0,{id:"counters",on:true});}
   var cd={weekGeneral:true,weekWow:true,counters:true};
   DB.hubBlocks.forEach(function(b){ if(b.collapsed===undefined)b.collapsed=!!cd[b.id]; if(b.showDone===undefined)b.showDone=false; });
 }
 function catById(id){return DB.categories.find(c=>c.id===id)||DB.categories[0];}
+function expCatById(id){return (DB.expCats||[]).find(function(c){return c.id===id;});}
+function won(n){return (Number(n)||0).toLocaleString("ko-KR")+"원";}
+function shiftMonth(ym,delta){var a=ym.split("-").map(Number);var d=new Date(a[0],a[1]-1+delta,1);return d.getFullYear()+"-"+pad(d.getMonth()+1);}
 function masterOf(id){return DB.events.find(e=>e.id===id);}
 function escapeHtml(s){return String(s==null?"":s).replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[m]));}
 function emptyHtml(t){return '<div class="empty">'+t+'</div>';}
@@ -97,6 +108,7 @@ function lighten(hex,amt){const n=parseInt(hex.slice(1),16);return "rgb("+Math.m
 function eventsForRange(rs,re){
   const out=[];
   DB.events.forEach(ev=>{
+    if(!DB.happyOn){var _sc=catById(ev.catId);if(_sc&&_sc.secret)return;}
     const base=parseYmd(ev.date);const baseEnd=parseYmd(ev.endDate||ev.date);
     const spanDays=Math.round((startOfDay(baseEnd)-startOfDay(base))/86400000);
     const rep=ev.repeat||"none";
@@ -262,6 +274,8 @@ function openWorkoutList(cid){
 let curTab="home";
 let viewMonth=new Date(todayD().getFullYear(),todayD().getMonth(),1);
 let selDate=dayKeyNow();
+var expMonth=ymd(todayD()).slice(0,7);
+var happyMonth=ymd(todayD()).slice(0,7);
 
 /* ===== 홈 (달력 + 허브) ===== */
 function isDesktop(){ return window.matchMedia("(min-width:900px)").matches; }
@@ -330,6 +344,7 @@ function renderHome(){
   document.getElementById("prevM").onclick=()=>{viewMonth.setMonth(viewMonth.getMonth()-1);buildMonthGrid();};
   document.getElementById("nextM").onclick=()=>{viewMonth.setMonth(viewMonth.getMonth()+1);buildMonthGrid();};
   document.getElementById("todayM").onclick=()=>{viewMonth=new Date(todayD().getFullYear(),todayD().getMonth(),1);selDate=dayKeyNow();refreshDay();};
+  var _bl=host.querySelector(".brandline");if(_bl)addLongPress(_bl,toggleHappy);
   refreshDay();
 }
 
@@ -616,7 +631,7 @@ function openEditor(ev,preset){
   if(ev&&ev.workout){var wc=(DB.counters||[]).find(function(c){return c.kind==="workout"&&c.workoutType===ev.workout.type;});if(wc){openWorkoutLog(wc.id,ev.id);return;}}
   const editing=!!ev;
   const e=ev?Object.assign({},ev):Object.assign({id:uid(),catId:"personal",title:"",date:(preset&&preset.date)||selDate,allDay:false,start:"09:00",end:"10:00",imp:1,repeat:"none",alarm:false,alarmMin:30,tag:"",note:""},preset||{});
-  const catChips=DB.categories.map(c=>'<button type="button" class="chip'+(c.id===e.catId?" sel":"")+'" data-cat="'+c.id+'" style="color:'+c.color+'"><i class="dot" style="background:'+c.color+'"></i><span style="color:var(--text)">'+escapeHtml(c.name)+'</span></button>').join("");
+  const catChips=DB.categories.filter(function(c){return !c.secret||DB.happyOn;}).map(c=>'<button type="button" class="chip'+(c.id===e.catId?" sel":"")+'" data-cat="'+c.id+'" style="color:'+c.color+'"><i class="dot" style="background:'+c.color+'"></i><span style="color:var(--text)">'+escapeHtml(c.name)+'</span></button>').join("");
   const impBtn=i=>'<button type="button" class="imp'+(e.imp===i?" sel":"")+'" data-imp="'+i+'"><span class="imp-bar" style="height:'+(8+i*3)+'px"></span>'+["","보통","높음","매우 높음"][i]+'</button>';
   const alarmOpts=[0,5,10,30,60,120,1440].map(v=>'<option value="'+v+'"'+((e.alarmMin||30)===v?" selected":"")+'>'+(v===0?"정시":v>=1440?"1일 전":v>=60?(v/60)+"시간 전":v+"분 전")+'</option>').join("");
   const root=document.getElementById("modalRoot");
@@ -657,7 +672,7 @@ function openEditor(ev,preset){
 /* ===== 루틴 / 건강 모달 ===== */
 function openRoutineEditor(r,presetCadence){
   const editing=!!r;const e=r?Object.assign({},r):{id:uid(),title:"",cadence:presetCadence||"daily",time:"",catId:"health"};
-  const catChips=DB.categories.map(c=>'<button type="button" class="chip'+(c.id===e.catId?" sel":"")+'" data-cat="'+c.id+'" style="color:'+c.color+'"><i class="dot" style="background:'+c.color+'"></i><span style="color:var(--text)">'+escapeHtml(c.name)+'</span></button>').join("");
+  const catChips=DB.categories.filter(function(c){return !c.secret||DB.happyOn;}).map(c=>'<button type="button" class="chip'+(c.id===e.catId?" sel":"")+'" data-cat="'+c.id+'" style="color:'+c.color+'"><i class="dot" style="background:'+c.color+'"></i><span style="color:var(--text)">'+escapeHtml(c.name)+'</span></button>').join("");
   const root=document.getElementById("modalRoot");
   root.innerHTML='<div class="sheet"><div class="sheet-h"><span class="title">'+(editing?"루틴 편집":"루틴 추가")+'</span><button class="x" id="mX">×</button></div>'+
     '<div class="field"><label>제목</label><input type="text" id="rTitle" value="'+escapeHtml(e.title)+'" placeholder="예: 공복 영양제"/></div>'+
@@ -705,6 +720,149 @@ function openHubEdit(){
   root.querySelectorAll("[data-tg]").forEach(s=>s.onclick=()=>{const i=+s.dataset.tg;DB.hubBlocks[i].on=!DB.hubBlocks[i].on;save();refreshDay();openHubEdit();});
   root.querySelectorAll("[data-up]").forEach(b=>b.onclick=()=>{const i=+b.dataset.up;if(i>0){const a=DB.hubBlocks;const t=a[i-1];a[i-1]=a[i];a[i]=t;save();refreshDay();openHubEdit();}});
   root.querySelectorAll("[data-down]").forEach(b=>b.onclick=()=>{const i=+b.dataset.down;const a=DB.hubBlocks;if(i<a.length-1){const t=a[i+1];a[i+1]=a[i];a[i]=t;save();refreshDay();openHubEdit();}});
+}
+
+/* ===== 익스펜스 ===== */
+function renderExpensePage(){
+  var host=document.getElementById("tab-expense");if(!host)return;
+  var ym=expMonth;var parts=ym.split("-");
+  var list=(DB.expenses||[]).filter(function(e){return (e.date||"").slice(0,7)===ym&&(DB.happyOn||e.source!=="happy");});
+  list.sort(function(a,b){return b.date.localeCompare(a.date)||String(b.id).localeCompare(String(a.id));});
+  var total=list.reduce(function(sum,e){return sum+(Number(e.amount)||0);},0);
+  var byCat={};list.forEach(function(e){byCat[e.catId]=(byCat[e.catId]||0)+(Number(e.amount)||0);});
+  var catSummary=Object.keys(byCat).sort(function(a,b){return byCat[b]-byCat[a];}).map(function(cid){var c=expCatById(cid);return '<span class="exp-cat"><span class="exp-cat-n">'+escapeHtml(c?c.name:"기타")+'</span><span class="exp-cat-v">'+won(byCat[cid])+'</span></span>';}).join("");
+  var byDate={};list.forEach(function(e){(byDate[e.date]=byDate[e.date]||[]).push(e);});
+  var dates=Object.keys(byDate).sort(function(a,b){return b.localeCompare(a);});
+  var rowsHtml=dates.map(function(d){var dd=parseYmd(d);
+    var items=byDate[d].map(function(e){return '<div class="crow exp-row" data-exp="'+e.id+'" style="cursor:pointer"><span class="ctitle clip">'+escapeHtml(e.item||"(품목)")+(e.vendor?' <small style="color:var(--faint)">'+escapeHtml(e.vendor)+'</small>':'')+'</span><span class="exp-amt">'+won(e.amount)+'</span></div>';}).join("");
+    return '<div class="charlabel">'+(dd.getMonth()+1)+'/'+dd.getDate()+' '+DOW_KO[dd.getDay()]+'</div>'+items;
+  }).join("");
+  host.innerHTML='<div class="page-head"><div class="page-title">익스펜스</div><button class="btn gold sm" id="expAdd">＋ 지출</button></div>'+
+    '<div class="exp-month"><button class="nav-btn" id="expPrev">‹</button><span class="exp-mtitle">'+parts[0]+'. '+parts[1]+'</span><button class="nav-btn" id="expNext">›</button></div>'+
+    '<div class="exp-total"><span>이번 달 지출</span><b>'+won(total)+'</b></div>'+
+    (catSummary?'<div class="exp-cats">'+catSummary+'</div>':'')+
+    (rowsHtml||emptyHtml("이 달 지출 없음"));
+  document.getElementById("expAdd").onclick=function(){openExpenseEditor(null);};
+  document.getElementById("expPrev").onclick=function(){expMonth=shiftMonth(ym,-1);renderExpensePage();};
+  document.getElementById("expNext").onclick=function(){expMonth=shiftMonth(ym,1);renderExpensePage();};
+  host.querySelectorAll("[data-exp]").forEach(function(x){x.onclick=function(){openExpenseEditor((DB.expenses||[]).find(function(e){return e.id===x.dataset.exp;}));};});
+}
+function openExpenseEditor(exp){
+  var editing=!!exp;
+  var e=exp?Object.assign({},exp):{id:uid(),date:(selDate||ymd(todayD())),vendor:"",item:"",amount:"",catId:((DB.expCats||[])[0]||{}).id||"",note:""};
+  var vOpts=(DB.expVendors||[]).map(function(v){return '<option value="'+escapeHtml(v.name)+'"></option>';}).join("");
+  var iOpts=(DB.expItems||[]).map(function(it){return '<option value="'+escapeHtml(it.name)+'"></option>';}).join("");
+  var cOpts=(DB.expCats||[]).map(function(c){return '<option value="'+c.id+'"'+(c.id===e.catId?" selected":"")+'>'+escapeHtml(c.name)+'</option>';}).join("");
+  var root=document.getElementById("modalRoot");
+  root.innerHTML='<div class="sheet"><div class="sheet-h"><span class="title">'+(editing?"지출 편집":"새 지출")+'</span><button class="x" id="mX">×</button></div>'+
+    '<div class="field"><label>날짜</label><input type="date" id="xDate" value="'+e.date+'"/></div>'+
+    '<div class="field"><label>판매처</label><input type="text" id="xVendor" list="xVendorList" value="'+escapeHtml(e.vendor||"")+'" placeholder="쿠팡 · 킹닭 자사몰"/><datalist id="xVendorList">'+vOpts+'</datalist></div>'+
+    '<div class="field"><label>품목</label><input type="text" id="xItem" list="xItemList" value="'+escapeHtml(e.item||"")+'" placeholder="닭가슴살"/><datalist id="xItemList">'+iOpts+'</datalist></div>'+
+    '<div class="field"><label>금액 (원)</label><input type="number" inputmode="numeric" id="xAmount" value="'+(e.amount===""?"":e.amount)+'" placeholder="0"/></div>'+
+    '<div class="field"><label>분류</label><select id="xCat">'+cOpts+'</select></div>'+
+    '<div class="field"><label>메모</label><input type="text" id="xNote" value="'+escapeHtml(e.note||"")+'" placeholder="선택"/></div>'+
+    '<div class="sheet-actions">'+(editing?'<button class="btn danger" id="xDel">삭제</button>':'')+'<button class="btn gold" id="xSave">저장</button></div></div>';
+  root.hidden=false;root.onclick=function(x){if(x.target===root)closeModal();};
+  var q=function(sel){return root.querySelector(sel);};q("#mX").onclick=closeModal;
+  q("#xItem").addEventListener("change",function(){var it=(DB.expItems||[]).find(function(z){return z.name===q("#xItem").value.trim();});if(it&&it.vendor&&!q("#xVendor").value.trim())q("#xVendor").value=it.vendor;});
+  q("#xSave").onclick=function(){
+    var vendor=q("#xVendor").value.trim();var item=q("#xItem").value.trim();var amount=Number(q("#xAmount").value)||0;var catId=q("#xCat").value;
+    if(!item){toast("품목을 입력해주세요");return;}
+    DB.expVendors=DB.expVendors||[];DB.expItems=DB.expItems||[];DB.expenses=DB.expenses||[];
+    if(vendor&&!DB.expVendors.some(function(v){return v.name===vendor;}))DB.expVendors.push({id:uid(),name:vendor});
+    var it=DB.expItems.find(function(z){return z.name===item;});
+    if(!it){DB.expItems.push({id:uid(),name:item,vendor:vendor});}else if(vendor&&!it.vendor){it.vendor=vendor;}
+    var rec={id:e.id,date:q("#xDate").value,vendor:vendor,item:item,amount:amount,catId:catId,note:q("#xNote").value.trim()};
+    if(e.orderId)rec.orderId=e.orderId;if(e.source)rec.source=e.source;
+    var i=DB.expenses.findIndex(function(x){return x.id===e.id;});if(i>=0)DB.expenses[i]=rec;else DB.expenses.push(rec);
+    expMonth=(rec.date||"").slice(0,7)||expMonth;
+    save();closeModal();renderExpensePage();toast(editing?"수정됨":"추가됨");
+  };
+  var del=q("#xDel");if(del)del.onclick=function(){if(confirm("이 지출을 삭제할까요?")){DB.expenses=(DB.expenses||[]).filter(function(x){return x.id!==e.id;});save();closeModal();renderExpensePage();toast("삭제됨");}};
+}
+
+/* ===== 해피 (시크릿) ===== */
+function hCount(type,pred){return (DB.happyLogs||[]).filter(function(l){return l.type===type&&pred(l);}).length;}
+function happySummary(l){
+  if(l.type==="sex"){var m="섹스"+(l.partner?" · "+escapeHtml(l.partner):"");if(l.amount)m+=" · "+won(l.amount);return m;}
+  var d=l.solo||{};var s="자위";if(d.mediaCat)s+=" · "+escapeHtml(d.mediaCat);if(d.actor)s+=" · "+escapeHtml(d.actor);if(d.title)s+=" · "+escapeHtml(d.title);return s;
+}
+function renderHappyPage(){
+  var host=document.getElementById("tab-happy");if(!host)return;
+  var today=dayKeyNow();var wr=weekGenRange(today);
+  var wSolo=hCount("solo",function(l){return l.date>=wr[0]&&l.date<=wr[1];});
+  var wSex=hCount("sex",function(l){return l.date>=wr[0]&&l.date<=wr[1];});
+  var aSolo=hCount("solo",function(){return true;});
+  var aSex=hCount("sex",function(){return true;});
+  var parts=happyMonth.split("-");
+  var list=(DB.happyLogs||[]).filter(function(l){return (l.date||"").slice(0,7)===happyMonth;}).sort(function(a,b){return b.date.localeCompare(a.date)||String(b.time).localeCompare(String(a.time));});
+  var byDate={};list.forEach(function(l){(byDate[l.date]=byDate[l.date]||[]).push(l);});
+  var dates=Object.keys(byDate).sort(function(a,b){return b.localeCompare(a);});
+  var rowsHtml=dates.map(function(d){var dd=parseYmd(d);
+    var items=byDate[d].map(function(l){return '<div class="crow" data-hlog="'+l.id+'" style="cursor:pointer"><span class="ctime">'+l.time+'</span><span class="ctitle clip">'+happySummary(l)+'</span><i class="ti ti-chevron-right" style="color:var(--faint)"></i></div>';}).join("");
+    return '<div class="charlabel" style="color:var(--pink)">'+(dd.getMonth()+1)+'/'+dd.getDate()+' '+DOW_KO[dd.getDay()]+'</div>'+items;
+  }).join("");
+  host.innerHTML='<div class="page-head"><div class="page-title" style="color:var(--pink)">해피</div><button class="btn pink sm" id="hpAdd">＋ 기록</button></div>'+
+    '<div class="stats"><div class="stat"><b style="color:var(--pink)">'+wSolo+' · '+wSex+'</b><span>이번주 자위·섹스</span></div>'+
+    '<div class="stat"><b style="color:var(--pink)">'+aSolo+'</b><span>올타임 자위</span></div>'+
+    '<div class="stat"><b style="color:var(--pink)">'+aSex+'</b><span>올타임 섹스</span></div></div>'+
+    '<div class="exp-month"><button class="nav-btn" id="hpPrev">‹</button><span class="exp-mtitle">'+parts[0]+'. '+parts[1]+'</span><button class="nav-btn" id="hpNext">›</button></div>'+
+    (rowsHtml||emptyHtml("이 달 기록 없음"));
+  document.getElementById("hpAdd").onclick=function(){openHappyLog(null);};
+  document.getElementById("hpPrev").onclick=function(){happyMonth=shiftMonth(happyMonth,-1);renderHappyPage();};
+  document.getElementById("hpNext").onclick=function(){happyMonth=shiftMonth(happyMonth,1);renderHappyPage();};
+  host.querySelectorAll("[data-hlog]").forEach(function(x){x.onclick=function(){openHappyLog(x.dataset.hlog);};});
+}
+function openHappyLog(logId){
+  var existing=logId?(DB.happyLogs||[]).find(function(l){return l.id===logId;}):null;
+  var now=new Date();var defTime=pad(now.getHours())+":"+pad(now.getMinutes());
+  var e=existing?Object.assign({},existing):{id:uid(),date:selDate,time:defTime,type:"solo",solo:{mediaCat:"",actor:"",title:""},partner:"",amount:0,note:""};
+  var so=e.solo||{};
+  var mOpts=(DB.happyMediaCats||[]).map(function(m){return '<option value="'+escapeHtml(m)+'"></option>';}).join("");
+  var aOpts=(DB.happyActors||[]).map(function(a){return '<option value="'+escapeHtml(a.name)+'"></option>';}).join("");
+  var pOpts=(DB.happyPartners||[]).map(function(p){return '<option value="'+escapeHtml(p.name)+'"></option>';}).join("");
+  var root=document.getElementById("modalRoot");
+  root.innerHTML='<div class="sheet"><div class="sheet-h"><span class="title" style="color:var(--pink)">'+(existing?"기록 편집":"해피 기록")+'</span><button class="x" id="mX">×</button></div>'+
+    '<div class="field"><label>유형</label><div class="seg" id="hType"><button type="button" data-ht="solo" class="'+(e.type==="solo"?"sel":"")+'">자위</button><button type="button" data-ht="sex" class="'+(e.type==="sex"?"sel":"")+'">섹스</button></div></div>'+
+    '<div class="row2"><div class="field"><label>날짜</label><input type="date" id="hDate" value="'+e.date+'"/></div><div class="field"><label>시각</label><input type="time" id="hTime" value="'+e.time+'"/></div></div>'+
+    '<div id="hSolo">'+
+      '<div class="field"><label>시청각</label><input type="text" id="hMedia" list="hMediaList" value="'+escapeHtml(so.mediaCat||"")+'" placeholder="J · K · BJ · 기타"/><datalist id="hMediaList">'+mOpts+'</datalist></div>'+
+      '<div class="field"><label>배우</label><input type="text" id="hActor" list="hActorList" value="'+escapeHtml(so.actor||"")+'" placeholder="예: 아이다 유아"/><datalist id="hActorList">'+aOpts+'</datalist></div>'+
+      '<div class="field"><label>품번 · 제목 (선택)</label><input type="text" id="hTitle" value="'+escapeHtml(so.title||"")+'" placeholder="선택"/></div>'+
+    '</div>'+
+    '<div id="hSex">'+
+      '<div class="field"><label>상대</label><input type="text" id="hPartner" list="hPartnerList" value="'+escapeHtml(e.partner||"")+'" placeholder="상대 이름"/><datalist id="hPartnerList">'+pOpts+'</datalist></div>'+
+      '<div class="field"><label>지출 (원)</label><input type="number" inputmode="numeric" id="hAmount" value="'+(e.amount||0)+'"/></div>'+
+    '</div>'+
+    '<div class="field"><label>메모</label><input type="text" id="hNote" value="'+escapeHtml(e.note||"")+'" placeholder="선택"/></div>'+
+    '<div class="sheet-actions">'+(existing?'<button class="btn danger" id="hDel">삭제</button>':'')+'<button class="btn pink" id="hSave">'+(existing?"저장":"기록")+'</button></div></div>';
+  root.hidden=false;root.onclick=function(x){if(x.target===root)closeModal();};
+  var q=function(sel){return root.querySelector(sel);};q("#mX").onclick=closeModal;
+  var selType=e.type;
+  function applyType(){q("#hSolo").style.display=selType==="solo"?"":"none";q("#hSex").style.display=selType==="sex"?"":"none";q("#hType").querySelectorAll("button").forEach(function(b){b.classList.toggle("sel",b.dataset.ht===selType);});}
+  q("#hType").querySelectorAll("button").forEach(function(b){b.onclick=function(){selType=b.dataset.ht;applyType();};});
+  applyType();
+  q("#hSave").onclick=function(){
+    DB.happyLogs=DB.happyLogs||[];DB.happyActors=DB.happyActors||[];DB.happyPartners=DB.happyPartners||[];DB.happyMediaCats=DB.happyMediaCats||[];DB.expenses=DB.expenses||[];
+    var rec={id:e.id,date:q("#hDate").value,time:q("#hTime").value||defTime,type:selType,note:q("#hNote").value.trim()};
+    if(selType==="solo"){
+      var mc=q("#hMedia").value.trim(),ac=q("#hActor").value.trim(),ti=q("#hTitle").value.trim();
+      rec.solo={mediaCat:mc,actor:ac,title:ti};rec.partner="";rec.amount=0;
+      if(mc&&DB.happyMediaCats.indexOf(mc)<0)DB.happyMediaCats.push(mc);
+      if(ac&&!DB.happyActors.some(function(a){return a.name===ac;}))DB.happyActors.push({id:uid(),name:ac});
+    }else{
+      var pt=q("#hPartner").value.trim(),am=Number(q("#hAmount").value)||0;
+      rec.partner=pt;rec.amount=am;rec.solo={};
+      if(pt&&!DB.happyPartners.some(function(p){return p.name===pt;}))DB.happyPartners.push({id:uid(),name:pt});
+    }
+    var i=DB.happyLogs.findIndex(function(x){return x.id===e.id;});if(i>=0)DB.happyLogs[i]=rec;else DB.happyLogs.push(rec);
+    var exId="hx-"+rec.id;var ei=DB.expenses.findIndex(function(x){return x.id===exId;});
+    if(rec.type==="sex"&&rec.amount>0){var xr={id:exId,date:rec.date,vendor:rec.partner||"해피",item:"해피",amount:rec.amount,catId:"date",source:"happy",note:rec.note};if(ei>=0)DB.expenses[ei]=xr;else DB.expenses.push(xr);}
+    else if(ei>=0){DB.expenses.splice(ei,1);}
+    happyMonth=(rec.date||"").slice(0,7)||happyMonth;
+    save();closeModal();renderHappyPage();toast(existing?"수정됨":"기록됨");
+  };
+  var del=q("#hDel");if(del)del.onclick=function(){if(confirm("이 기록을 삭제할까요?")){DB.happyLogs=(DB.happyLogs||[]).filter(function(x){return x.id!==e.id;});DB.expenses=(DB.expenses||[]).filter(function(x){return x.id!=="hx-"+e.id;});save();closeModal();renderHappyPage();toast("삭제됨");}};
 }
 
 /* ===== 통계 ===== */
@@ -784,20 +942,25 @@ function addQuest(charId){
 }
 
 /* ===== Nav / Toast / Boot ===== */
+function updateHappyUI(){ if(document&&document.body) document.body.classList.toggle("happy-on",!!(DB&&DB.happyOn)); }
+function toggleHappy(){ DB.happyOn=!DB.happyOn; save(); updateHappyUI(); if(DB.happyOn){switchTab("happy");toast("해피 켜짐");} else { if(curTab==="happy")switchTab("home"); else render(curTab); toast("해피 꺼짐"); } }
+function addLongPress(el,fn){ var t=null; function st(){t=setTimeout(function(){t=null;fn();},600);} function cx(){if(t){clearTimeout(t);t=null;}} el.addEventListener("touchstart",st,{passive:true}); el.addEventListener("touchend",cx); el.addEventListener("touchmove",cx); el.addEventListener("mousedown",st); el.addEventListener("mouseup",cx); el.addEventListener("mouseleave",cx); }
 function switchTab(name){
   curTab=name;
   document.querySelectorAll(".tab").forEach(s=>s.hidden=s.id!=="tab-"+name);
   document.querySelectorAll("#railNav button,#tabbar button[data-tab]").forEach(b=>b.classList.toggle("active",b.dataset.tab===name));
-  if(name==="home")renderHome();else if(name==="stats")renderStatsPage();else if(name==="settings")renderSettings();
+  updateHappyUI();
+  if(name==="home")renderHome();else if(name==="expense")renderExpensePage();else if(name==="happy")renderHappyPage();else if(name==="stats")renderStatsPage();else if(name==="settings")renderSettings();
 }
 let toastTimer=null;
 function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.hidden=true,2200);}
 var FB={}, lastJson=null, started=false;
-function render(name){ if(name==="home")renderHome(); else if(name==="stats")renderStatsPage(); else if(name==="settings")renderSettings(); }
+function render(name){ updateHappyUI(); if(name==="home")renderHome(); else if(name==="expense")renderExpensePage(); else if(name==="happy")renderHappyPage(); else if(name==="stats")renderStatsPage(); else if(name==="settings")renderSettings(); }
 function bindNav(){
   document.querySelectorAll("#railNav button,#tabbar button[data-tab]").forEach(function(b){ b.onclick=function(){switchTab(b.dataset.tab);}; });
   document.getElementById("fab").onclick=function(){openEditor(null,{date:selDate});};
   document.getElementById("railAdd").onclick=function(){openEditor(null,{date:selDate});};
+  var rs=document.getElementById("railSecret");if(rs)rs.onclick=toggleHappy;
 }
 function showLogin(){ var ls=document.getElementById("loginScreen"); if(ls){ls.style.display="";ls.hidden=false;} document.querySelector(".shell").style.display="none"; }
 function showApp(){

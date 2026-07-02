@@ -35,23 +35,30 @@
     <div class="rail-brand"><svg class="brand-ico" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="9" y="14" width="46" height="42" rx="8" stroke="currentColor" stroke-width="3.2"/><line x1="9" y1="25" x2="55" y2="25" stroke="currentColor" stroke-width="3.2"/><line x1="21" y1="8" x2="21" y2="18" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/><line x1="43" y1="8" x2="43" y2="18" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/><path fill-rule="evenodd" fill="currentColor" d="M19,41 a11,11 0 1,0 22,0 a11,11 0 1,0 -22,0 z M26,37.5 a10,10 0 1,0 20,0 a10,10 0 1,0 -20,0 z"/><path fill="currentColor" d="M41 32 L42.4 35.6 L46 37 L42.4 38.4 L41 42 L39.6 38.4 L36 37 L39.6 35.6 Z"/></svg><b>Hooje</b><span>Calendar</span></div>
     <nav class="rail-nav" id="railNav">
       <button data-tab="home" class="active"><i class="ti ti-layout-dashboard"></i><span>홈</span></button>
+      <button data-tab="expense"><i class="ti ti-wallet"></i><span>지출</span></button>
       <button data-tab="stats"><i class="ti ti-chart-bar"></i><span>통계</span></button>
       <button data-tab="settings"><i class="ti ti-settings"></i><span>설정</span></button>
+      <button data-tab="happy" class="happy-nav"><i class="ti ti-flame"></i><span>해피</span></button>
     </nav>
     <button class="rail-add" id="railAdd" aria-label="일정 추가"><i class="ti ti-plus"></i></button>
+    <button class="rail-secret" id="railSecret" aria-label="더보기"><i class="ti ti-dots"></i></button>
   </aside>
 
   <main class="main">
     <section id="tab-home" class="tab"></section>
+    <section id="tab-expense" class="tab" hidden></section>
     <section id="tab-stats" class="tab" hidden></section>
     <section id="tab-settings" class="tab" hidden></section>
+    <section id="tab-happy" class="tab" hidden></section>
   </main>
 
   <nav class="tabbar" id="tabbar">
     <button data-tab="home" class="active"><i class="ti ti-layout-dashboard"></i><span>홈</span></button>
-    <button data-tab="stats"><i class="ti ti-chart-bar"></i><span>통계</span></button>
+    <button data-tab="expense"><i class="ti ti-wallet"></i><span>지출</span></button>
     <button class="fab" id="fab" aria-label="일정 추가"><i class="ti ti-plus"></i></button>
+    <button data-tab="stats"><i class="ti ti-chart-bar"></i><span>통계</span></button>
     <button data-tab="settings"><i class="ti ti-settings"></i><span>설정</span></button>
+    <button data-tab="happy" class="happy-nav"><i class="ti ti-flame"></i><span>해피</span></button>
   </nav>
 </div>
 
