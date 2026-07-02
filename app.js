@@ -14,6 +14,7 @@ function todayD(){return startOfDay(new Date());}
 function dayKeyNow(){const n=new Date();const d=new Date(n);if(n.getHours()<6)d.setDate(d.getDate()-1);return ymd(startOfDay(d));}
 function mdShort(dstr){const d=parseYmd(dstr);return (d.getMonth()+1)+"/"+d.getDate();}
 function toMin(t){const a=t.split(":").map(Number);return a[0]*60+a[1];}
+function tlMin(t){var m=toMin(t);return m<360?m+1440:m;}
 function addHour(t){let a=t.split(":").map(Number);let h=Math.min(23,a[0]+1);return pad(h)+":"+pad(a[1]);}
 
 /* 주기 키 (선택 날짜 기준) */
@@ -54,6 +55,8 @@ function defaultData(){
       {id:uid(),title:"주간 결산",cadence:"weekly",catId:"work"},
     ],
     routineDone:{},
+    counters:[],
+    counterLogs:[],
     wowChars:[{id:"hooje",name:"후제"},{id:"meo",name:"메오"},{id:"mago",name:"마고"},{id:"gro",name:"그로"},{id:"mutong",name:"무통"}],
     wowQuests:[
       {id:uid(),charId:"hooje",title:"신화레이드",type:"check"},
@@ -65,15 +68,16 @@ function defaultData(){
     health:{},
     hubBlocks:[
       {id:"stats",on:true},{id:"timeline",on:true},{id:"daily",on:true},
-      {id:"weekGeneral",on:true},{id:"weekWow",on:true},{id:"health",on:false},{id:"upcoming",on:false},
+      {id:"weekGeneral",on:true},{id:"weekWow",on:true},{id:"counters",on:true},{id:"health",on:false},{id:"upcoming",on:false},
     ],
   };
 }
-const BLOCK_NAMES={stats:"통계 요약",timeline:"이 날 일정 (타임라인)",daily:"이 날 체크리스트 (일일)",weekGeneral:"이번 주 · 일반",weekWow:"이번 주 · 와우",health:"건강 요약",upcoming:"다가오는 일정 (3일)"};
+const BLOCK_NAMES={stats:"통계 요약",timeline:"이 날 일정 (타임라인)",daily:"이 날 체크리스트 (일일)",weekGeneral:"이번 주 · 일반",weekWow:"이번 주 · 와우",counters:"카운터",health:"건강 요약",upcoming:"다가오는 일정 (3일)"};
 
 let DB;
 function load(){}
 function save(){ if(!FB.docRef){return;} lastJson=JSON.stringify(DB); FB.docRef.set({json:lastJson,updatedAt:new Date().toISOString()}).catch(function(e){toast("저장 실패: "+(e.code||e.message));}); }
+function normalizeDB(){ if(!DB)return; if(!DB.counters)DB.counters=[]; if(!DB.counterLogs)DB.counterLogs=[]; if(DB.hubBlocks&&!DB.hubBlocks.some(function(b){return b.id==="counters";})){var i=DB.hubBlocks.findIndex(function(b){return b.id==="weekWow";});DB.hubBlocks.splice(i>=0?i+1:DB.hubBlocks.length,0,{id:"counters",on:true});} }
 function catById(id){return DB.categories.find(c=>c.id===id)||DB.categories[0];}
 function masterOf(id){return DB.events.find(e=>e.id===id);}
 function escapeHtml(s){return String(s==null?"":s).replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[m]));}
@@ -104,6 +108,9 @@ function instancesOnDay(dstr){const d=parseYmd(dstr);return eventsForRange(d,d);
 
 /* ===== 루틴 / 와우 체크 → 캘린더 자동기록 ===== */
 function routineState(r,dstr){const pk=r.cadence==="daily"?keyDaily(dstr):keyWeekGen(dstr);return DB.routineDone[r.id+"@"+pk];}
+function routineIsDone(r,dstr){var st=routineState(r,dstr);if(!st)return false;return r.type==="counter"?((st.progress||0)>=(r.target||1)):true;}
+function routineCounter(r,dstr,delta){var pk=r.cadence==="daily"?keyDaily(dstr):keyWeekGen(dstr);var k=r.id+"@"+pk;var cur=(DB.routineDone[k]&&DB.routineDone[k].progress)||0;var v=Math.max(0,Math.min(r.target||1,cur+delta));if(v<=0){delete DB.routineDone[k];}else{DB.routineDone[k]={progress:v};}save();}
+function reorderRoutine(id,dir){var arr=DB.routines;var i=arr.findIndex(function(x){return x.id===id;});if(i<0)return;var r=arr[i];var j=i+dir;while(j>=0&&j<arr.length){if(arr[j].cadence===r.cadence&&!arr[j].time)break;j+=dir;}if(j<0||j>=arr.length)return;var t=arr[i];arr[i]=arr[j];arr[j]=t;save();refreshDay();}
 function toggleRoutine(r,dstr){
   const pk=r.cadence==="daily"?keyDaily(dstr):keyWeekGen(dstr);const k=r.id+"@"+pk;
   if(DB.routineDone[k]){delete DB.routineDone[k];}else{DB.routineDone[k]={done:true};}
@@ -115,6 +122,91 @@ function toggleWowCheck(q,dstr){
 }
 function wowCounter(q,dstr,delta){
   const p=wpFor(dstr);const st=p[q.id]=p[q.id]||{};st.progress=Math.max(0,Math.min(q.target,(st.progress||0)+delta));save();
+}
+
+/* ===== 카운터 (커스텀 필드 기록) ===== */
+function counterById(id){return (DB.counters||[]).find(function(c){return c.id===id;});}
+function counterCount(c,dstr){
+  var logs=(DB.counterLogs||[]).filter(function(l){return l.counterId===c.id;});
+  if(c.period==="weekly"){var r=weekGenRange(dstr);return logs.filter(function(l){return l.date>=r[0]&&l.date<=r[1];}).length;}
+  if(c.period==="monthly"){var ym=dstr.slice(0,7);return logs.filter(function(l){return l.date.slice(0,7)===ym;}).length;}
+  return logs.filter(function(l){return l.date===dstr;}).length;
+}
+function counterLogsOnDay(cid,dstr){return (DB.counterLogs||[]).filter(function(l){return l.counterId===cid&&l.date===dstr;}).sort(function(a,b){return toMin(a.time)-toMin(b.time);});}
+function logSummary(c,l){
+  return c.fields.map(function(f){var v=l.values?l.values[f.id]:undefined;
+    if(f.type==="bool")return v?f.label:"";
+    if(v==null||v===""||v===f.default)return "";
+    if(f.type==="money")return v?Number(v).toLocaleString()+"원":"";
+    if(f.type==="duration")return v?v+"분":"";
+    return String(v);
+  }).filter(Boolean).join(" · ");
+}
+function blkCounters(el){
+  var cs=(DB.counters||[]).filter(function(c){return !c.secret;});
+  if(!cs.length){el.innerHTML="";return;}
+  var rows=cs.map(function(c){
+    var cat=catById(c.catId);var cnt=counterCount(c,selDate);
+    var per=c.period==="weekly"?"주":c.period==="monthly"?"월":"오늘";
+    return '<div class="crow"><span class="evdot"><i style="background:'+cat.color+'"></i></span>'+
+      '<span class="ctitle clip" data-clog="'+c.id+'">'+escapeHtml(c.name)+'</span>'+
+      '<span class="cnt-badge">'+per+' <b style="color:'+lighten(cat.color,45)+'">'+cnt+'</b></span>'+
+      '<button class="cnt-add" data-cadd="'+c.id+'">＋</button></div>';
+  }).join("");
+  el.innerHTML='<div class="sec"><span>Counter</span></div>'+rows;
+  el.querySelectorAll("[data-cadd]").forEach(function(b){b.onclick=function(){openCounterLog(b.dataset.cadd);};});
+  el.querySelectorAll("[data-clog]").forEach(function(s){s.onclick=function(){openCounterDay(s.dataset.clog);};});
+}
+function counterFieldHtml(f,e){
+  var v=(e.values&&e.values[f.id]!==undefined)?e.values[f.id]:f.default;
+  if(f.type==="select"){var opts=(f.options||[]).map(function(o){return '<option'+(o===v?" selected":"")+'>'+escapeHtml(o)+'</option>';}).join("");return '<div class="field"><label>'+escapeHtml(f.label)+'</label><select data-f="'+f.id+'">'+opts+'</select></div>';}
+  if(f.type==="bool")return '<div class="toggle"><span class="lbl">'+escapeHtml(f.label)+'</span><div class="sw'+(v?" on":"")+'" data-fb="'+f.id+'"><i></i></div></div>';
+  if(f.type==="money")return '<div class="field"><label>'+escapeHtml(f.label)+' (원)</label><input type="number" inputmode="numeric" data-f="'+f.id+'" value="'+(v||0)+'"/></div>';
+  if(f.type==="duration")return '<div class="field"><label>'+escapeHtml(f.label)+' (분)</label><input type="number" inputmode="numeric" data-f="'+f.id+'" value="'+(v==null?"":v)+'"/></div>';
+  if(f.type==="number")return '<div class="field"><label>'+escapeHtml(f.label)+'</label><input type="number" data-f="'+f.id+'" value="'+(v==null?"":v)+'"/></div>';
+  return '<div class="field"><label>'+escapeHtml(f.label)+'</label><input type="text" data-f="'+f.id+'" value="'+escapeHtml(v==null?"":v)+'"/></div>';
+}
+function openCounterLog(cid,logId){
+  var c=counterById(cid);if(!c)return;
+  var existing=logId?(DB.counterLogs||[]).find(function(l){return l.id===logId;}):null;
+  var now=new Date();var defTime=pad(now.getHours())+":"+pad(now.getMinutes());
+  var e=existing?Object.assign({},existing):{id:uid(),counterId:cid,date:selDate,time:defTime,values:{}};
+  var cat=catById(c.catId);
+  var root=document.getElementById("modalRoot");
+  root.innerHTML='<div class="sheet"><div class="sheet-h"><span class="title"><i class="dot" style="background:'+cat.color+';margin-right:7px"></i>'+escapeHtml(c.name)+(existing?" · 편집":"")+'</span><button class="x" id="mX">×</button></div>'+
+    '<div class="row2"><div class="field"><label>날짜</label><input type="date" id="clDate" value="'+e.date+'"/></div>'+
+    '<div class="field"><label>시각</label><input type="time" id="clTime" value="'+e.time+'"/></div></div>'+
+    c.fields.map(function(f){return counterFieldHtml(f,e);}).join("")+
+    '<div class="sheet-actions">'+(existing?'<button class="btn danger" id="clDel">삭제</button>':'')+'<button class="btn gold" id="clSave">'+(existing?"저장":"기록")+'</button></div></div>';
+  root.hidden=false;root.onclick=function(ev){if(ev.target===root)closeModal();};
+  var q=function(sel){return root.querySelector(sel);};q("#mX").onclick=closeModal;
+  root.querySelectorAll("[data-fb]").forEach(function(sw){sw.onclick=function(){sw.classList.toggle("on");};});
+  q("#clSave").onclick=function(){
+    var rec={id:e.id,counterId:cid,date:q("#clDate").value,time:q("#clTime").value||defTime,values:{}};
+    c.fields.forEach(function(f){
+      if(f.type==="bool"){rec.values[f.id]=root.querySelector('[data-fb="'+f.id+'"]').classList.contains("on");}
+      else{var el2=root.querySelector('[data-f="'+f.id+'"]');var val=el2.value;
+        if(f.type==="money"||f.type==="duration"||f.type==="number"){val=val===""?null:Number(val);}
+        rec.values[f.id]=val;}
+    });
+    DB.counterLogs=DB.counterLogs||[];
+    var i=DB.counterLogs.findIndex(function(x){return x.id===e.id;});if(i>=0)DB.counterLogs[i]=rec;else DB.counterLogs.push(rec);
+    save();closeModal();refreshDay();toast(existing?"수정됨":"기록됨");
+  };
+  var del=q("#clDel");if(del)del.onclick=function(){DB.counterLogs=(DB.counterLogs||[]).filter(function(x){return x.id!==e.id;});save();closeModal();refreshDay();toast("삭제됨");};
+}
+function openCounterDay(cid){
+  var c=counterById(cid);if(!c)return;var cat=catById(c.catId);
+  var d=parseYmd(selDate);
+  var logs=counterLogsOnDay(cid,selDate);
+  var rows=logs.length?logs.map(function(l){return '<div class="crow" data-edit="'+l.id+'" style="cursor:pointer"><span class="ctime">'+l.time+'</span><span class="ctitle clip">'+escapeHtml(logSummary(c,l)||"기록")+'</span><i class="ti ti-chevron-right" style="color:var(--faint)"></i></div>';}).join(""):emptyHtml("이 날 기록 없음");
+  var root=document.getElementById("modalRoot");
+  root.innerHTML='<div class="sheet"><div class="sheet-h"><span class="title"><i class="dot" style="background:'+cat.color+';margin-right:7px"></i>'+escapeHtml(c.name)+' · '+(d.getMonth()+1)+'/'+d.getDate()+'</span><button class="x" id="mX">×</button></div>'+
+    rows+'<div class="sheet-actions"><button class="btn gold" id="clAdd">＋ 기록 추가</button></div></div>';
+  root.hidden=false;root.onclick=function(ev){if(ev.target===root)closeModal();};
+  var q=function(sel){return root.querySelector(sel);};q("#mX").onclick=closeModal;
+  q("#clAdd").onclick=function(){openCounterLog(cid);};
+  root.querySelectorAll("[data-edit]").forEach(function(x){x.onclick=function(){openCounterLog(cid,x.dataset.edit);};});
 }
 
 /* ===== UI state ===== */
@@ -142,18 +234,19 @@ function blkRemaining(el){
   const allday=insts.filter(e=>e.allDay);
   const timedAll=insts.filter(e=>!e.allDay&&e.start).slice().sort((a,b)=>toMin(a.start)-toMin(b.start));
   let timed=timedAll;
-  if(isToday){const nowM=new Date().getHours()*60+new Date().getMinutes();timed=timedAll.filter(function(e){var en=toMin(e.end||e.start);if(en<=toMin(e.start))en=1440;return en>=nowM;});}
+  if(isToday){var nm=new Date().getHours()*60+new Date().getMinutes();var nt=nm<360?nm+1440:nm;timed=timedAll.filter(function(e){var en=tlMin(e.end||e.start);if(en<=tlMin(e.start))en+=1440;return en>=nt;});}
   let rows=allday.map(function(ev){const c=catById(ev.catId);return '<div class="crow" data-ev="'+ev._id+'" style="cursor:pointer"><span class="evdot"><i style="background:'+c.color+'"></i></span><span class="ctitle clip">'+escapeHtml(ev.title)+'</span><span class="ctime">종일</span></div>';}).join("")
     +timed.map(function(ev){const c=catById(ev.catId);return '<div class="crow" data-ev="'+ev._id+'" style="cursor:pointer"><span class="evdot"><i style="background:'+c.color+'"></i></span><span class="ctitle clip">'+escapeHtml(ev.title)+'</span><span class="ctime">'+ev.start+'</span></div>';}).join("");
   el.innerHTML='<div class="sec"><span>오늘 일정</span><span class="r">'+(isToday?(timedAll.length-timed.length)+"/"+timedAll.length:""+timedAll.length)+'</span></div>'+(rows||emptyHtml("일정 없음"));
   el.querySelectorAll("[data-ev]").forEach(function(x){x.onclick=function(){openEditor(masterOf(x.dataset.ev));};});
 }
 function renderChkDesktop(host){
-  host.innerHTML='<div id="cd-remain"></div><div id="cd-daily"></div><div id="cd-wg"></div><div id="cd-ww"></div>';
+  host.innerHTML='<div id="cd-remain"></div><div id="cd-daily"></div><div id="cd-wg"></div><div id="cd-ww"></div><div id="cd-cnt"></div>';
   blkRemaining(document.getElementById("cd-remain"));
   blkDaily(document.getElementById("cd-daily"));
   blkWeekGen(document.getElementById("cd-wg"));
   blkWeekWow(document.getElementById("cd-ww"));
+  blkCounters(document.getElementById("cd-cnt"));
 }
 function renderHome(){
   const host=document.getElementById("tab-home");
@@ -214,7 +307,7 @@ function buildMonthGrid(){
       const el=document.createElement("div");el.className="item clip";
       el.style.top=(LT+placed*LH)+"px";el.style.left="calc("+(seg.cs/7*100)+"% + 3px)";el.style.width="calc("+(seg.span/7*100)+"% - 6px)";
       el.style.background=hexToRgba(c.color,isBar?0.30:0.22);el.style.color=lighten(c.color,isBar?60:55);
-      el.textContent=seg.ev.title;
+      el.textContent=(!isBar&&seg.ev.start&&!seg.ev.allDay?seg.ev.start.slice(0,2)+" ":"")+seg.ev.title;
       el.onclick=e=>{e.stopPropagation();openEditor(masterOf(seg.ev._id));};
       wk.appendChild(el);
     });
@@ -243,6 +336,7 @@ function renderBlock(id,el){
   else if(id==="daily")blkDaily(el);
   else if(id==="weekGeneral")blkWeekGen(el);
   else if(id==="weekWow")blkWeekWow(el);
+  else if(id==="counters")blkCounters(el);
   else if(id==="health")blkHealth(el);
   else if(id==="upcoming")blkUpcoming(el);
 }
@@ -260,13 +354,25 @@ function blkStats(el){
     '<div class="stat"><b style="color:var(--wow)">D-'+dd+'</b><span>와우 리셋</span></div></div>';
 }
 function checklistRow(r,dstr){
-  const on=!!routineState(r,dstr);const c=catById(r.catId);
-  const right=on?'<span class="ctag" style="color:'+lighten(c.color,55)+';background:'+hexToRgba(c.color,.14)+'">'+(r.time?r.time+" 기록":"기록")+'</span>':(r.time?'<span class="ctime">'+r.time+'</span>':'');
+  const c=catById(r.catId);const st=routineState(r,dstr);
+  const reord=!r.time?'<span class="reord"><button data-rup="'+r.id+'" title="위로">▲</button><button data-rdown="'+r.id+'" title="아래로">▼</button></span>':'';
+  if(r.type==="counter"){
+    const v=(st&&st.progress)||0;const tg=r.target||1;const full=v>=tg;
+    return '<div class="crow"><span class="evdot"><i style="background:'+c.color+'"></i></span>'+
+      '<span class="ctitle '+(full?"done":"")+'" data-ert="'+r.id+'">'+escapeHtml(r.title)+'</span>'+reord+
+      '<div class="counter"><button data-rdec="'+r.id+'">−</button><span class="val" style="color:'+lighten(c.color,45)+'">'+v+'/'+tg+'</span><button data-rinc="'+r.id+'">＋</button></div></div>';
+  }
+  const on=!!st;
+  const right=on?'<span class="ctag" style="color:'+lighten(c.color,55)+';background:'+hexToRgba(c.color,.14)+'">'+(r.time?r.time+" 완료":"완료")+'</span>':(r.time?'<span class="ctime">'+r.time+'</span>':'');
   return '<div class="crow"><button class="ck '+(on?"on":"")+'" data-rt="'+r.id+'">'+(on?"✓":"")+'</button>'+
-    '<span class="ctitle '+(on?"done":"")+'" data-ert="'+r.id+'">'+escapeHtml(r.title)+'</span>'+right+'</div>';
+    '<span class="ctitle '+(on?"done":"")+'" data-ert="'+r.id+'">'+escapeHtml(r.title)+'</span>'+reord+right+'</div>';
 }
 function bindChecklist(el){
   el.querySelectorAll("[data-rt]").forEach(b=>b.onclick=()=>{const r=DB.routines.find(x=>x.id===b.dataset.rt);toggleRoutine(r,selDate);refreshDay();});
+  el.querySelectorAll("[data-rinc]").forEach(b=>b.onclick=()=>{routineCounter(DB.routines.find(x=>x.id===b.dataset.rinc),selDate,1);refreshDay();});
+  el.querySelectorAll("[data-rdec]").forEach(b=>b.onclick=()=>{routineCounter(DB.routines.find(x=>x.id===b.dataset.rdec),selDate,-1);refreshDay();});
+  el.querySelectorAll("[data-rup]").forEach(b=>b.onclick=(e)=>{e.stopPropagation();reorderRoutine(b.dataset.rup,-1);});
+  el.querySelectorAll("[data-rdown]").forEach(b=>b.onclick=(e)=>{e.stopPropagation();reorderRoutine(b.dataset.rdown,1);});
   el.querySelectorAll("[data-ert]").forEach(s=>s.onclick=()=>{const r=DB.routines.find(x=>x.id===s.dataset.ert);openRoutineEditor(r);});
 }
 function blkTimeline(el){
@@ -281,44 +387,50 @@ function buildTimeline(tl,ar,dstr,autoScroll){
   const dayFill=insts.filter(e=>e.allDay&&!isComp(e));
   const compAll=insts.filter(e=>e.allDay&&isComp(e));
   const timed=insts.filter(e=>!e.allDay&&e.start);
-  const S=6,E=24,PPM=44/60,total=(E-S)*60*PPM;
+  const S=360,E=1800,PPM=44/60,total=(E-S)*PPM;
   ar.innerHTML="";
-  compAll.forEach(ev=>{const c=catById(ev.catId);const chip=document.createElement("div");chip.className="crow";chip.style.cursor="pointer";chip.style.padding="5px 10px";
-    chip.innerHTML='<span class="evbar" style="height:16px;background:'+c.color+'"></span><span class="ctitle clip">'+escapeHtml(ev.title)+'</span><span class="ctime">✓</span>';
-    chip.onclick=()=>openEditor(masterOf(ev._id));ar.appendChild(chip);});
+  compAll.forEach(function(ev){const c=catById(ev.catId);const chip=document.createElement("div");chip.className="crow";chip.style.cursor="pointer";chip.style.padding="5px 10px";
+    chip.innerHTML='<span class="evdot"><i style="background:'+c.color+'"></i></span><span class="ctitle clip">'+escapeHtml(ev.title)+'</span><span class="ctime">✓</span>';
+    chip.onclick=function(){openEditor(masterOf(ev._id));};ar.appendChild(chip);});
   tl.innerHTML="";tl.style.height=total+"px";
   const axis=document.createElement("div");axis.className="axis";tl.appendChild(axis);
-  for(let h=S;h<=E;h+=2){const top=(h-S)*60*PPM;const l=document.createElement("div");l.className="hr-label";l.style.top=top+"px";l.textContent=pad(h);tl.appendChild(l);if(h>S){const ln=document.createElement("div");ln.className="hr-line";ln.style.top=top+"px";tl.appendChild(ln);}}
-  dayFill.forEach((ev,i)=>{const c=catById(ev.catId);const n=Math.max(1,dayFill.length);const el=document.createElement("div");el.className="tl-fill";
+  for(let h=6;h<=30;h+=2){const top=(h*60-S)*PPM;const l=document.createElement("div");l.className="hr-label";l.style.top=top+"px";l.textContent=pad(h>=24?h-24:h);tl.appendChild(l);if(h>6){const ln=document.createElement("div");ln.className="hr-line";ln.style.top=top+"px";tl.appendChild(ln);}}
+  dayFill.forEach(function(ev,i){const c=catById(ev.catId);const n=Math.max(1,dayFill.length);const el=document.createElement("div");el.className="tl-fill";
     el.style.top="0";el.style.height=total+"px";el.style.left="calc("+(i/n*100)+"%)";el.style.width="calc("+(100/n)+"% - 4px)";
     el.style.background=hexToRgba(c.color,0.12);el.style.borderLeft="3px solid "+c.color;
     el.innerHTML='<div class="clip" style="font-size:10px;color:'+lighten(c.color,55)+';padding:3px 7px">'+escapeHtml(ev.title)+' · 종일</div>';
-    el.onclick=()=>openEditor(masterOf(ev._id));tl.appendChild(el);});
-  const evs=timed.slice().sort((a,b)=>toMin(a.start)-toMin(b.start));
-  evs.forEach(ev=>{const c=catById(ev.catId);const st=toMin(ev.start);let en=toMin(ev.end||ev.start);if(en<=st)en=1440;const dur=en-st;const top=(st-S*60)*PPM;
+    el.onclick=function(){openEditor(masterOf(ev._id));};tl.appendChild(el);});
+  const evs=timed.slice().sort(function(a,b){return tlMin(a.start)-tlMin(b.start);});
+  evs.forEach(function(ev){const c=catById(ev.catId);var st=tlMin(ev.start),en=tlMin(ev.end||ev.start);if(en<=st)en+=1440;var dur=en-st;var top=(st-S)*PPM;
     if(dur<15){const el=document.createElement("div");el.className="tl-point";el.style.top=top+"px";el.style.borderTopColor=c.color;
       el.innerHTML='<span class="clip"><b style="color:'+lighten(c.color,55)+'">'+ev.start+'</b> <span style="color:'+lighten(c.color,45)+'">'+escapeHtml(ev.title)+'</span></span>';
-      el.onclick=()=>openEditor(masterOf(ev._id));tl.appendChild(el);
-    }else{const ov=evs.filter(o=>{const os=toMin(o.start),oe=toMin(o.end||o.start);return (oe-os)>=15&&os<en&&oe>st;});const cols=Math.max(1,ov.length),col=Math.max(0,ov.indexOf(ev)),w=100/cols;
+      el.onclick=function(){openEditor(masterOf(ev._id));};tl.appendChild(el);
+    }else{var ov=evs.filter(function(o){var os=tlMin(o.start),oe=tlMin(o.end||o.start);if(oe<=os)oe+=1440;return (oe-os)>=15&&os<en&&oe>st;});var cols=Math.max(1,ov.length),col=Math.max(0,ov.indexOf(ev)),w=100/cols;
       const el=document.createElement("div");el.className="ev";el.style.top=top+"px";el.style.height=Math.max(16,dur*PPM)+"px";
       el.style.left="calc("+(col*w)+"% + "+(col?3:6)+"px)";el.style.width="calc("+w+"% - 9px)";
       el.style.background=hexToRgba(c.color,0.18);el.style.borderLeft="3px solid "+c.color;el.style.color=lighten(c.color,60);
       el.innerHTML=cols>1?'<div class="clip" style="font-size:9px;line-height:11px">'+escapeHtml(ev.title)+'</div>':'<div class="clip"><span class="et">'+ev.start+'</span>'+escapeHtml(ev.title)+'</div>'+(ev.note&&dur*PPM>28?'<div class="clip es">'+escapeHtml(ev.note)+'</div>':'');
-      el.onclick=()=>openEditor(masterOf(ev._id));tl.appendChild(el);}
+      el.onclick=function(){openEditor(masterOf(ev._id));};tl.appendChild(el);}
   });
-  if(dstr===dayKeyNow()){const now=new Date();const nm=now.getHours()*60+now.getMinutes();if(nm>=S*60&&nm<=E*60){const line=document.createElement("div");line.className="now-line";line.style.top=((nm-S*60)*PPM)+"px";tl.appendChild(line);}}
-  if(autoScroll){const sc=tl.parentElement;if(sc){let target=0;if(dstr===dayKeyNow()){const now=new Date();target=((now.getHours()*60+now.getMinutes())-60-S*60)*PPM;}else if(evs.length){target=(toMin(evs[0].start)-30-S*60)*PPM;}setTimeout(function(){sc.scrollTop=Math.max(0,target);},0);}}
+  if(dstr===dayKeyNow()){var now=new Date();var nm=now.getHours()*60+now.getMinutes();var nt=nm<360?nm+1440:nm;if(nt>=S&&nt<=E){const line=document.createElement("div");line.className="now-line";line.style.top=((nt-S)*PPM)+"px";tl.appendChild(line);}}
+  if(autoScroll){const sc=tl.parentElement;if(sc){var target=0;if(dstr===dayKeyNow()){var n2=new Date();var m2=n2.getHours()*60+n2.getMinutes();var t2=m2<360?m2+1440:m2;target=(t2-60-S)*PPM;}setTimeout(function(){sc.scrollTop=Math.max(0,target);},0);}}
 }
 function blkDaily(el){
-  const rs=DB.routines.filter(r=>r.cadence==="daily");const isToday=selDate===dayKeyNow();
+  const rs0=DB.routines.filter(r=>r.cadence==="daily");
+  const untimed=rs0.filter(r=>!r.time);const timedR=rs0.filter(r=>r.time).sort((a,b)=>toMin(a.time)-toMin(b.time));
+  const rs=untimed.concat(timedR);
   const rows=rs.map(r=>checklistRow(r,selDate)).join("");
-  el.innerHTML='<div class="sec"><span>Daily Checklist</span><span class="r">'+rs.filter(r=>routineState(r,selDate)).length+'/'+rs.length+' <span class="add" data-add>＋</span></span></div>'+(rows||emptyHtml("항목 없음"));
+  const done=rs.filter(r=>routineIsDone(r,selDate)).length;
+  el.innerHTML='<div class="sec"><span>Daily Checklist</span><span class="r">'+done+'/'+rs.length+' <span class="add" data-add>＋</span></span></div>'+(rows||emptyHtml("항목 없음"));
   bindChecklist(el);el.querySelector("[data-add]").onclick=()=>openRoutineEditor(null,"daily");
 }
 function blkWeekGen(el){
-  const rs=DB.routines.filter(r=>r.cadence==="weekly");const rg=weekGenRange(selDate);
+  const rs0=DB.routines.filter(r=>r.cadence==="weekly");
+  const untimed=rs0.filter(r=>!r.time);const timedR=rs0.filter(r=>r.time).sort((a,b)=>toMin(a.time)-toMin(b.time));
+  const rs=untimed.concat(timedR);
   const rows=rs.map(r=>checklistRow(r,selDate)).join("");
-  el.innerHTML='<div class="sec"><span>Weekly Checklist · Life</span><span class="r">'+rs.filter(r=>routineState(r,selDate)).length+'/'+rs.length+' <span class="add" data-add>＋</span></span></div>'+(rows||emptyHtml("항목 없음"));
+  const done=rs.filter(r=>routineIsDone(r,selDate)).length;
+  el.innerHTML='<div class="sec"><span>Weekly Checklist · Life</span><span class="r">'+done+'/'+rs.length+' <span class="add" data-add>＋</span></span></div>'+(rows||emptyHtml("항목 없음"));
   bindChecklist(el);el.querySelector("[data-add]").onclick=()=>openRoutineEditor(null,"weekly");
 }
 function blkWeekWow(el){
@@ -607,7 +719,7 @@ function showApp(){
   FB.docRef.onSnapshot(function(snap){
     if(!snap.exists){ DB=defaultData(); save(); return; }
     var j=snap.data().json; if(j===lastJson) return;
-    lastJson=j; DB=JSON.parse(j);
+    lastJson=j; DB=JSON.parse(j); normalizeDB();
     if(!started){ started=true; bindNav(); switchTab("home"); } else { render(curTab); }
   }, function(err){
     if(err&&err.code==="permission-denied"){
