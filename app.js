@@ -588,7 +588,9 @@ function boot(){
   firebase.initializeApp(window.FIREBASE_CONFIG);
   FB.auth=firebase.auth(); FB.db=firebase.firestore(); FB.provider=new firebase.auth.GoogleAuthProvider();
   var lb=document.getElementById("loginBtn");
-  if(lb) lb.onclick=function(){ FB.auth.signInWithPopup(FB.provider).catch(function(e){ toast("로그인 실패: "+(e.code||e.message)); }); };
+  if(lb) lb.onclick=function(){ FB.auth.signInWithRedirect(FB.provider); };
+  try{ FB.auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL); }catch(e){}
+  FB.auth.getRedirectResult().catch(function(e){ if(e&&e.code) toast("로그인 오류: "+e.code); });
   FB.auth.onAuthStateChanged(function(user){ if(user){ showApp(); } else { showLogin(); } });
 }
 boot();
