@@ -173,6 +173,7 @@ function wowCounter(q,dstr,delta){
 
 /* ===== 카운터 (커스텀 필드 기록) ===== */
 function counterById(id){return (DB.counters||[]).find(function(c){return c.id===id;});}
+function counterColor(c){return (c&&c.color)||catById(c.catId).color;}
 function counterCount(c,dstr){
   if(c.kind==="workout"){
     var evs=(DB.events||[]).filter(function(e){return e.workout&&e.workout.type===c.workoutType;});
@@ -206,7 +207,7 @@ function weekTotals(){
     else if(c.kind==="happy")n=(DB.happyLogs||[]).filter(function(l){return l.date>=wr[0]&&l.date<=wr[1];}).length;
     else n=(DB.counterLogs||[]).filter(function(l){return l.counterId===c.id&&l.date>=wr[0]&&l.date<=wr[1];}).length;
     var cat=catById(c.catId);
-    return '<span class="wt-chip"><span class="dot" style="background:'+cat.color+'"></span>'+escapeHtml(c.name)+'<b style="color:'+lighten(cat.color,45)+'">'+n+'</b></span>';
+return '<span class="wt-chip"><span class="dot" style="background:'+counterColor(c)+'"></span>'+escapeHtml(c.name)+'<b style="color:'+lighten(counterColor(c),45)+'">'+n+'</b></span>';
   });
   return out.length?'<div class="wk-totals">'+out.join("")+'</div>':"";
 }
@@ -215,10 +216,10 @@ function blkCounters(el){
   var cs=(DB.counters||[]).filter(function(c){return !c.secret||DB.happyOn;});
   var head=sectionHead("counters","Daily Counter","",{});
   if(!cs.length||b.collapsed){el.innerHTML=head;bindSectionHead(el,"counters");return;}
-  var chips=orderedCounters(cs).map(function(c){var cat=catById(c.catId);var cnt=counterCount(c,selDate);
-    return '<span class="cnt-chip"><span class="dot" style="background:'+cat.color+'"></span><span class="cnt-name" data-clog="'+c.id+'">'+escapeHtml(c.name)+'</span><b style="color:'+lighten(cat.color,45)+'">'+cnt+'</b><button class="cnt-add" data-cadd="'+c.id+'">＋</button></span>';
+  var chips=orderedCounters(cs).map(function(c){var col=counterColor(c);
+    return '<span class="dc-item"><span class="dc-name" data-clog="'+c.id+'">'+escapeHtml(c.name)+'</span><button class="dc-add" data-cadd="'+c.id+'" style="color:'+col+';border-color:'+hexToRgba(col,0.55)+'">＋</button></span>';
   }).join("");
-  el.innerHTML=head+'<div class="cnt-grid">'+chips+'</div>';
+  el.innerHTML=head+'<div class="dc-wrap">'+chips+'</div>';
   bindSectionHead(el,"counters");
   el.querySelectorAll("[data-cadd]").forEach(function(x){x.onclick=function(){var c=counterById(x.dataset.cadd);if(c&&c.kind==="workout")openWorkoutLog(c.id);else if(c&&c.kind==="happy")openHappyLog(null);else openCounterLog(x.dataset.cadd);};});
   el.querySelectorAll("[data-clog]").forEach(function(x){x.onclick=function(){var c=counterById(x.dataset.clog);if(c&&c.kind==="workout")openWorkoutList(c.id);else if(c&&c.kind==="happy")switchTab("happy");else openCounterDay(x.dataset.clog);};});
@@ -574,7 +575,7 @@ function blkWeekGen(el){
   if(b.collapsed){el.innerHTML=head;bindSectionHead(el,"weekGeneral",function(){openRoutineEditor(null,"weekly");});return;}
   var shown=b.showDone?rs:rs.filter(function(r){return !routineIsDone(r,selDate);});
   var rows=shown.map(function(r){return checklistRow(r,selDate);}).join("");
-  el.innerHTML=head+(rows||emptyHtml(rs.length&&done===rs.length?"모두 완료 · 눈 아이콘으로 보기":"항목 없음"))+weekTotals();
+  el.innerHTML=head+(rows||(rs.length?emptyHtml("모두 완료 · 눈 아이콘으로 보기"):""))+weekTotals();
   bindChecklist(el);bindSectionHead(el,"weekGeneral",function(){openRoutineEditor(null,"weekly");});
 }
 function blkWeekWow(el){
@@ -997,7 +998,7 @@ function buildDetailTimeline(tl,dstr,autoScroll){
       el.onclick=function(){openEventPreview(ev._id,el);};tl.appendChild(el);}
   });
   function marker(t,color,text,onclick){var mtop=(tlMin(t)-S)*PPM;var m=document.createElement("div");m.className="dmark";m.style.top=mtop+"px";m.style.borderTopColor=color;var chip=document.createElement("span");chip.className="dmark-l";chip.style.color=lighten(color,55);chip.style.background=hexToRgba(color,0.2);chip.textContent=t+" "+text;chip.onclick=onclick;m.appendChild(chip);tl.appendChild(m);}
-  (DB.counterLogs||[]).filter(function(l){return l.date===dstr;}).forEach(function(l){var c=counterById(l.counterId);if(!c)return;var cat=catById(c.catId);var sm=logSummary(c,l);marker(l.time,cat.color,c.name+(sm?" · "+sm:""),function(){openCounterLog(l.counterId,l.id);});});
+  (DB.counterLogs||[]).filter(function(l){return l.date===dstr;}).forEach(function(l){var c=counterById(l.counterId);if(!c)return;var sm=logSummary(c,l);marker(l.time,counterColor(c),c.name+(sm?" · "+sm:""),function(){openCounterLog(l.counterId,l.id);});});
   DB.routines.filter(function(r){return r.cadence==="daily"&&routineIsDone(r,dstr);}).forEach(function(r){var st=routineState(r,dstr);var note=st&&st.note;var tm=(note&&note.type==="time"&&note.val)?note.val:r.time;if(!tm)return;var c=catById(r.catId);marker(tm,c.color,"✓ "+r.title,function(){openRoutineEditor(r);});});
   if(DB.happyOn)(DB.happyLogs||[]).filter(function(l){return l.date===dstr;}).forEach(function(l){marker(l.time,"#ED93B1",happySummary(l),function(){openHappyLog(l.id);});});
   if(dstr===dayKeyNow()){var now=new Date();var nm=now.getHours()*60+now.getMinutes();var nt=nm<360?nm+1440:nm;if(nt>=S&&nt<=E){var line=document.createElement("div");line.className="now-line";line.style.top=((nt-S)*PPM)+"px";tl.appendChild(line);}}
@@ -1116,7 +1117,7 @@ function renderStatsPage(){
         });
         if(!inner)inner='<div class="strend-cap" style="text-align:left;color:var(--faint)">기록 없음</div>';
       } else { inner=counterTrend(c)+'<div class="strend-cap">최근 14일</div>'; }
-      html+='<div class="scard"><div class="scard-h"><span class="ddot" style="background:'+cat.color+'"></span><b>'+escapeHtml(c.name)+'</b><span class="scard-n">'+n+'회</span></div>'+inner+'</div>';
+      html+='<div class="scard"><div class="scard-h"><span class="ddot" style="background:'+counterColor(c)+'"></span><b>'+escapeHtml(c.name)+'</b><span class="scard-n">'+n+'회</span></div>'+inner+'</div>';
     });
   }
   var exp=(DB.expenses||[]).filter(function(e){return pred(e.date)&&(DB.happyOn||e.source!=="happy");});
