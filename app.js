@@ -142,7 +142,7 @@ function blkRemaining(el){
   const allday=insts.filter(e=>e.allDay);
   const timedAll=insts.filter(e=>!e.allDay&&e.start).slice().sort((a,b)=>toMin(a.start)-toMin(b.start));
   let timed=timedAll;
-  if(isToday){const nowM=new Date().getHours()*60+new Date().getMinutes();timed=timedAll.filter(e=>toMin(e.end||e.start)>=nowM);}
+  if(isToday){const nowM=new Date().getHours()*60+new Date().getMinutes();timed=timedAll.filter(function(e){var en=toMin(e.end||e.start);if(en<=toMin(e.start))en=1440;return en>=nowM;});}
   let rows=allday.map(function(ev){const c=catById(ev.catId);return '<div class="crow" data-ev="'+ev._id+'" style="cursor:pointer"><span class="evdot"><i style="background:'+c.color+'"></i></span><span class="ctitle clip">'+escapeHtml(ev.title)+'</span><span class="ctime">종일</span></div>';}).join("")
     +timed.map(function(ev){const c=catById(ev.catId);return '<div class="crow" data-ev="'+ev._id+'" style="cursor:pointer"><span class="evdot"><i style="background:'+c.color+'"></i></span><span class="ctitle clip">'+escapeHtml(ev.title)+'</span><span class="ctime">'+ev.start+'</span></div>';}).join("");
   el.innerHTML='<div class="sec"><span>오늘 일정</span><span class="r">'+(isToday?(timedAll.length-timed.length)+"/"+timedAll.length:""+timedAll.length)+'</span></div>'+(rows||emptyHtml("일정 없음"));
@@ -295,7 +295,7 @@ function buildTimeline(tl,ar,dstr,autoScroll){
     el.innerHTML='<div class="clip" style="font-size:10px;color:'+lighten(c.color,55)+';padding:3px 7px">'+escapeHtml(ev.title)+' · 종일</div>';
     el.onclick=()=>openEditor(masterOf(ev._id));tl.appendChild(el);});
   const evs=timed.slice().sort((a,b)=>toMin(a.start)-toMin(b.start));
-  evs.forEach(ev=>{const c=catById(ev.catId);const st=toMin(ev.start),en=toMin(ev.end||ev.start),dur=en-st;const top=(st-S*60)*PPM;
+  evs.forEach(ev=>{const c=catById(ev.catId);const st=toMin(ev.start);let en=toMin(ev.end||ev.start);if(en<=st)en=1440;const dur=en-st;const top=(st-S*60)*PPM;
     if(dur<15){const el=document.createElement("div");el.className="tl-point";el.style.top=top+"px";el.style.borderTopColor=c.color;
       el.innerHTML='<span class="clip"><b style="color:'+lighten(c.color,55)+'">'+ev.start+'</b> <span style="color:'+lighten(c.color,45)+'">'+escapeHtml(ev.title)+'</span></span>';
       el.onclick=()=>openEditor(masterOf(ev._id));tl.appendChild(el);
