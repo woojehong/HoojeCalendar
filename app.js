@@ -573,21 +573,28 @@ function bindNav(){
   document.getElementById("fab").onclick=function(){openEditor(null,{date:selDate});};
   document.getElementById("railAdd").onclick=function(){openEditor(null,{date:selDate});};
 }
-function showLogin(){ document.getElementById("loginScreen").hidden=false; document.querySelector(".shell").style.display="none"; }
+function showLogin(){ var ls=document.getElementById("loginScreen"); if(ls){ls.style.display="";ls.hidden=false;} document.querySelector(".shell").style.display="none"; }
 function showApp(){
-  document.getElementById("loginScreen").hidden=true; document.querySelector(".shell").style.display="";
+  var ls=document.getElementById("loginScreen");
+  if(ls){ ls.hidden=true; ls.style.display="none"; }
+  document.querySelector(".shell").style.display="";
   FB.docRef=FB.db.doc("app/state");
   FB.docRef.onSnapshot(function(snap){
     if(!snap.exists){ DB=defaultData(); save(); return; }
     var j=snap.data().json; if(j===lastJson) return;
     lastJson=j; DB=JSON.parse(j);
     if(!started){ started=true; bindNav(); switchTab("home"); } else { render(curTab); }
-  }, function(err){ toast("동기화 오류: "+(err.code||err.message)); });
+  }, function(err){
+    if(err&&err.code==="permission-denied"){
+      if(ls){ ls.style.display=""; ls.hidden=false; }
+      loginErr("데이터 접근 거부 — Firestore 규칙을 hooje@hooje.app 로 바꿔주세요");
+    } else { toast("동기화 오류: "+(err.code||err.message)); }
+  });
 }
 function loginErr(m){ var n=document.querySelector(".login-note"); if(n){ n.textContent=m; n.style.color="#e2554e"; } }
 function boot(){
   firebase.initializeApp(window.FIREBASE_CONFIG);
-  console.log("HOOJE build: auth-idpin-v5");
+  console.log("HOOJE build: auth-idpin-v6");
   FB.auth=firebase.auth(); FB.db=firebase.firestore();
   try{ FB.auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL); }catch(e){}
   var lb=document.getElementById("loginBtn"), pinEl=document.getElementById("loginPin");
