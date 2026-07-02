@@ -136,6 +136,12 @@ button{font-family:inherit;cursor:pointer;}
 .cnt-chip .cnt-add{width:22px;height:22px;margin-left:1px;border-radius:50%;font-size:14px;}
 .ck{width:20px;height:20px;border-radius:6px;border:1.5px solid #2f333b;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;color:#20180a;background:transparent;}
 .ck.on{background:var(--gold);border-color:var(--gold);}
+.ck.noted{background:var(--gold-deep);border-color:var(--gold-deep);color:#f2f4f7;}
+.xrow{display:flex;gap:6px;margin-bottom:6px;}
+.xrow .xr-item{flex:1;min-width:0;}
+.xrow .xr-amt{width:96px;flex-shrink:0;}
+.xrow .xr-del{width:34px;flex-shrink:0;background:var(--surface2);border:0.5px solid var(--line);color:var(--muted);border-radius:8px;font-size:16px;}
+.xrow .xr-del:hover{color:var(--danger);border-color:#3a2020;}
 .ctitle{flex:1;font-size:13px;min-width:0;cursor:pointer;}
 .ctitle.done{color:var(--faint);text-decoration:line-through;}
 .ctime{font-size:11px;color:var(--muted);flex-shrink:0;}
