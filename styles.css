@@ -221,3 +221,12 @@ textarea{resize:vertical;min-height:60px;}
 
 /* hidden 속성이 display:flex 등에 밀리지 않게 강제 (로그인·모달 숨김 보장) */
 [hidden]{display:none !important;}
+
+/* ===== 시간표 (종일채움/단발선/지금선/스크롤) ===== */
+.tl-scroll{position:relative;height:360px;overflow-y:auto;overflow-x:hidden;margin-top:4px;border:0.5px solid var(--line-cell);border-radius:10px;padding:2px 4px;}
+.tl-fill{position:absolute;border-radius:0 6px 6px 0;overflow:hidden;cursor:pointer;z-index:1;}
+.tl-point{position:absolute;left:6px;right:6px;height:0;border-top:2px solid var(--muted);z-index:3;cursor:pointer;}
+.tl-point span{position:absolute;left:0;top:-8px;font-size:10px;background:var(--bg);padding:0 6px 0 4px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ev{z-index:2;}
+.now-line{position:absolute;left:0;right:4px;height:0;border-top:2px solid var(--gold);z-index:6;pointer-events:none;}
+.now-line::before{content:"";position:absolute;left:-3px;top:-4px;width:7px;height:7px;border-radius:50%;background:var(--gold);}
