@@ -1,7 +1,7 @@
 :root{
   --bg:#0a0c0f; --surface:#111419; --surface2:#14181e; --surface3:#12161c; --surface4:#181d24;
   --line:#23262b; --line-soft:#181b20; --line-cell:#14171c;
-  --text:#f2f4f7; --text2:#c0cfe0; --muted:#82868f; --faint:#5c616a; --dim:#3c4048;
+  --text:#f2f4f7; --text2:#c0cfe0; --muted:#9aa1ad; --faint:#7c8590; --dim:#3c4048;
   --gold:#C9A84C; --gold-bright:#E4C46A; --gold-deep:#9a7d2e;
   --wow:#8788EE; --sat:#c26a6a; --sun:#5b9dff; --danger:#e2554e; --green:#46d17f;
   --radius:12px;
@@ -80,8 +80,8 @@ button{font-family:inherit;cursor:pointer;}
 .nav button:hover{border-color:var(--gold-deep);color:var(--text);}
 .nav .today-btn{width:auto;padding:0 12px;font-size:12px;}
 .dow{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:10px;color:var(--faint);margin-bottom:4px;}
-.grid{border-top:0.5px solid var(--line-cell);}
-.wk{position:relative;border-bottom:0.5px solid var(--line-cell);}
+.grid{border-top:1px solid var(--line);border-left:1px solid var(--line);border-right:1px solid var(--line);}
+.wk{position:relative;border-bottom:1px solid var(--line);background-image:repeating-linear-gradient(to right,transparent 0,transparent calc(100%/7 - 1px),var(--line) calc(100%/7 - 1px),var(--line) calc(100%/7));}
 .nums{display:grid;grid-template-columns:repeat(7,1fr);}
 .num{font-size:11px;padding:5px 0 0 6px;color:var(--text2);cursor:pointer;min-height:22px;}
 .num.out{color:var(--dim);}
@@ -103,7 +103,7 @@ button{font-family:inherit;cursor:pointer;}
 .stat{flex:1;background:var(--surface3);border-radius:10px;padding:9px 6px;text-align:center;}
 .stat b{font-size:18px;font-weight:500;display:block;}
 .stat span{font-size:9px;color:var(--muted);}
-.sec{font-size:10px;letter-spacing:.3px;color:var(--faint);margin:15px 2px 8px;display:flex;justify-content:space-between;align-items:center;}
+.sec{font-size:11px;font-weight:500;letter-spacing:.2px;color:var(--text2);margin:16px 2px 8px;display:flex;justify-content:space-between;align-items:center;}
 .sec .r{color:var(--muted);}
 .sec .add{cursor:pointer;color:var(--muted);}
 .crow{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--surface3);border:0.5px solid var(--line);border-radius:10px;margin-bottom:6px;}
@@ -116,7 +116,7 @@ button{font-family:inherit;cursor:pointer;}
 .counter{display:flex;align-items:center;gap:7px;flex-shrink:0;}
 .counter button{width:22px;height:22px;border-radius:6px;background:var(--surface4);border:0.5px solid var(--line);color:var(--text2);font-size:13px;line-height:1;}
 .counter .val{font-size:12px;color:var(--gold-bright);min-width:34px;text-align:center;}
-.charlabel{font-size:11px;color:#c6b9e8;margin:8px 2px 5px;}
+.charlabel{font-size:12px;font-weight:500;color:var(--wow);margin:9px 2px 5px;}
 .evrow{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--surface3);border:0.5px solid var(--line);border-radius:10px;margin-bottom:6px;cursor:pointer;}
 .evbar{width:3px;border-radius:2px;flex-shrink:0;}
 .empty{color:var(--faint);font-size:12px;padding:14px;text-align:center;}
@@ -223,10 +223,22 @@ textarea{resize:vertical;min-height:60px;}
 [hidden]{display:none !important;}
 
 /* ===== 시간표 (종일채움/단발선/지금선/스크롤) ===== */
-.tl-scroll{position:relative;height:360px;overflow-y:auto;overflow-x:hidden;margin-top:4px;border:0.5px solid var(--line-cell);border-radius:10px;padding:2px 4px;}
+.tl-scroll{position:relative;height:calc(100vh - 430px);min-height:480px;overflow-y:auto;overflow-x:hidden;margin-top:4px;border:0.5px solid var(--line-cell);border-radius:10px;padding:2px 4px;}
 .tl-fill{position:absolute;border-radius:0 6px 6px 0;overflow:hidden;cursor:pointer;z-index:1;}
 .tl-point{position:absolute;left:6px;right:6px;height:0;border-top:2px solid var(--muted);z-index:3;cursor:pointer;}
 .tl-point span{position:absolute;left:0;top:-8px;font-size:10px;background:var(--bg);padding:0 6px 0 4px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .ev{z-index:2;}
 .now-line{position:absolute;left:0;right:4px;height:0;border-top:2px solid var(--gold);z-index:6;pointer-events:none;}
 .now-line::before{content:"";position:absolute;left:-3px;top:-4px;width:7px;height:7px;border-radius:50%;background:var(--gold);}
+
+/* ===== 스크롤바 통일 (다크) ===== */
+*{scrollbar-width:thin;scrollbar-color:#23262b transparent;}
+::-webkit-scrollbar{width:10px;height:10px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:#23262b;border-radius:6px;border:2px solid transparent;background-clip:padding-box;}
+::-webkit-scrollbar-thumb:hover{background:#33384250;background:#333842;background-clip:padding-box;}
+::-webkit-scrollbar-corner{background:transparent;}
+
+/* ===== 행 왼쪽 슬롯 통일 (일정=점 / 할일=체크박스 / 카운터=빈슬롯) ===== */
+.evdot{width:20px;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.evdot i{width:9px;height:9px;border-radius:50%;display:block;}

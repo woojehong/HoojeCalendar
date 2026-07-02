@@ -5,3 +5,4 @@ service-account*.json
 *.key.json
 # 기타
 node_modules/
+_*.js

@@ -106,29 +106,15 @@ function instancesOnDay(dstr){const d=parseYmd(dstr);return eventsForRange(d,d);
 function routineState(r,dstr){const pk=r.cadence==="daily"?keyDaily(dstr):keyWeekGen(dstr);return DB.routineDone[r.id+"@"+pk];}
 function toggleRoutine(r,dstr){
   const pk=r.cadence==="daily"?keyDaily(dstr):keyWeekGen(dstr);const k=r.id+"@"+pk;
-  if(DB.routineDone[k]){delete DB.routineDone[k];}   /* 해제: 일정은 남김 */
-  else{
-    const ev={id:uid(),catId:r.catId,title:r.title,date:dstr,imp:1,repeat:"none",fromRoutine:r.id,done:true};
-    if(r.time){ev.allDay=false;ev.start=r.time;ev.end=r.time;}else ev.allDay=true;
-    DB.events.push(ev);DB.routineDone[k]={eventId:ev.id};
-  }
+  if(DB.routineDone[k]){delete DB.routineDone[k];}else{DB.routineDone[k]={done:true};}
   save();
 }
 function wpFor(dstr){const k=keyWowWeek(dstr);if(!DB.wowProgress[k])DB.wowProgress[k]={};return DB.wowProgress[k];}
 function toggleWowCheck(q,dstr){
-  const p=wpFor(dstr);const st=p[q.id]=p[q.id]||{};
-  if(st.done){st.done=false;}
-  else{st.done=true;if(!st.eventId){const ch=DB.wowChars.find(c=>c.id===q.charId);
-    const ev={id:uid(),catId:"wow",title:(ch?ch.name+" · ":"")+q.title,date:dstr,allDay:true,imp:1,repeat:"none",fromWow:q.id,done:true};
-    DB.events.push(ev);st.eventId=ev.id;}}
-  save();
+  const p=wpFor(dstr);const st=p[q.id]=p[q.id]||{};st.done=!st.done;save();
 }
 function wowCounter(q,dstr,delta){
-  const p=wpFor(dstr);const st=p[q.id]=p[q.id]||{};st.progress=Math.max(0,Math.min(q.target,(st.progress||0)+delta));
-  if(st.progress>=q.target&&!st.eventId){const ch=DB.wowChars.find(c=>c.id===q.charId);
-    const ev={id:uid(),catId:"wow",title:(ch?ch.name+" · ":"")+q.title+" 완료",date:dstr,allDay:true,imp:1,repeat:"none",fromWow:q.id,done:true};
-    DB.events.push(ev);st.eventId=ev.id;}
-  save();
+  const p=wpFor(dstr);const st=p[q.id]=p[q.id]||{};st.progress=Math.max(0,Math.min(q.target,(st.progress||0)+delta));save();
 }
 
 /* ===== UI state ===== */
@@ -151,9 +137,19 @@ function renderDayDesktop(host){
   host.querySelector("[data-add]").onclick=function(){ openEditor(null,{date:selDate}); };
   buildTimeline(document.getElementById("dpTL"),document.getElementById("dpAllday"),selDate,true);
 }
+function blkRemaining(el){
+  const insts=instancesOnDay(selDate);const isToday=selDate===dayKeyNow();
+  const allday=insts.filter(e=>e.allDay);
+  let timed=insts.filter(e=>!e.allDay&&e.start).slice().sort((a,b)=>toMin(a.start)-toMin(b.start));
+  if(isToday){const nowM=new Date().getHours()*60+new Date().getMinutes();timed=timed.filter(e=>toMin(e.end||e.start)>=nowM);}
+  let rows=allday.map(function(ev){const c=catById(ev.catId);return '<div class="crow" data-ev="'+ev._id+'" style="cursor:pointer"><span class="evdot"><i style="background:'+c.color+'"></i></span><span class="ctitle clip">'+escapeHtml(ev.title)+'</span><span class="ctime">종일</span></div>';}).join("")
+    +timed.map(function(ev){const c=catById(ev.catId);return '<div class="crow" data-ev="'+ev._id+'" style="cursor:pointer"><span class="evdot"><i style="background:'+c.color+'"></i></span><span class="ctitle clip">'+escapeHtml(ev.title)+'</span><span class="ctime">'+ev.start+'</span></div>';}).join("");
+  el.innerHTML='<div class="sec"><span>'+(isToday?"남은 일정":"이 날 일정")+'</span></div>'+(rows||emptyHtml("남은 일정 없음"));
+  el.querySelectorAll("[data-ev]").forEach(function(x){x.onclick=function(){openEditor(masterOf(x.dataset.ev));};});
+}
 function renderChkDesktop(host){
-  host.innerHTML='<div id="cd-stats"></div><div id="cd-daily"></div><div id="cd-wg"></div><div id="cd-ww"></div>';
-  blkStats(document.getElementById("cd-stats"));
+  host.innerHTML='<div id="cd-remain"></div><div id="cd-daily"></div><div id="cd-wg"></div><div id="cd-ww"></div>';
+  blkRemaining(document.getElementById("cd-remain"));
   blkDaily(document.getElementById("cd-daily"));
   blkWeekGen(document.getElementById("cd-wg"));
   blkWeekWow(document.getElementById("cd-ww"));
@@ -182,7 +178,7 @@ function buildMonthGrid(){
   const weeks=[];
   for(let w=0;w<6;w++){const days=[];for(let i=0;i<7;i++)days.push(addDays(gridStart,w*7+i));weeks.push(days);if(days[6].getMonth()!==m&&w>=4)break;}
   const gridEnd=weeks[weeks.length-1][6];const insts=eventsForRange(gridStart,gridEnd);
-  const LT=24,LH=17,ML=2;
+  const LT=26,LH=18,ML=3;
   const grid=document.getElementById("calGrid");grid.innerHTML="";
   weeks.forEach(days=>{
     const wkStart=days[0],wkEnd=days[6];
@@ -223,7 +219,7 @@ function buildMonthGrid(){
     });
     overflow.forEach((n,c)=>{if(n>0){const more=document.createElement("div");more.className="more";more.style.top=(LT+ML*LH)+"px";more.style.left=(c/7*100)+"%";more.textContent="+"+n;more.onclick=()=>{selDate=ymd(days[c]);refreshDay();};wk.appendChild(more);}});
     const lc=Math.min(lanes.length,ML)+(overflow.some(n=>n>0)?1:0);
-    wk.style.height=(LT+Math.max(1,lc)*LH+6)+"px";
+    wk.style.height=Math.max(66,LT+Math.max(1,lc)*LH+6)+"px";
     grid.appendChild(wk);
   });
 }
@@ -315,13 +311,13 @@ function buildTimeline(tl,ar,dstr,autoScroll){
 function blkDaily(el){
   const rs=DB.routines.filter(r=>r.cadence==="daily");const isToday=selDate===dayKeyNow();
   const rows=rs.map(r=>checklistRow(r,selDate)).join("");
-  el.innerHTML='<div class="sec"><span>'+(isToday?"오늘":"이 날")+' 체크리스트</span><span class="r">매일 06:00 · <span class="add" data-add>＋</span></span></div>'+(rows||emptyHtml("항목 없음"));
+  el.innerHTML='<div class="sec"><span>Daily Checklist</span><span class="r">매일 06:00 · <span class="add" data-add>＋</span></span></div>'+(rows||emptyHtml("항목 없음"));
   bindChecklist(el);el.querySelector("[data-add]").onclick=()=>openRoutineEditor(null,"daily");
 }
 function blkWeekGen(el){
   const rs=DB.routines.filter(r=>r.cadence==="weekly");const rg=weekGenRange(selDate);
   const rows=rs.map(r=>checklistRow(r,selDate)).join("");
-  el.innerHTML='<div class="sec"><span>이번 주 · 일반</span><span class="r">'+mdShort(rg[0])+"~"+mdShort(rg[1])+' · <span class="add" data-add>＋</span></span></div>'+(rows||emptyHtml("항목 없음"));
+  el.innerHTML='<div class="sec"><span>Weekly Checklist · Life</span><span class="r">'+mdShort(rg[0])+"~"+mdShort(rg[1])+' · <span class="add" data-add>＋</span></span></div>'+(rows||emptyHtml("항목 없음"));
   bindChecklist(el);el.querySelector("[data-add]").onclick=()=>openRoutineEditor(null,"weekly");
 }
 function blkWeekWow(el){
@@ -330,11 +326,11 @@ function blkWeekWow(el){
   let body="";
   chars.forEach(ch=>{const qs=DB.wowQuests.filter(q=>q.charId===ch.id);body+='<div class="charlabel">'+escapeHtml(ch.name)+'</div>';
     qs.forEach(q=>{const st=p[q.id]||{};
-      if(q.type==="counter"){const v=st.progress||0;body+='<div class="crow"><span class="ctitle '+(v>=q.target?"done":"")+'">'+escapeHtml(q.title)+'</span><div class="counter"><button data-wdec="'+q.id+'">−</button><span class="val">'+v+'/'+q.target+'</span><button data-winc="'+q.id+'">＋</button></div></div>';}
+      if(q.type==="counter"){const v=st.progress||0;body+='<div class="crow"><span class="evdot"></span><span class="ctitle '+(v>=q.target?"done":"")+'">'+escapeHtml(q.title)+'</span><div class="counter"><button data-wdec="'+q.id+'">−</button><span class="val">'+v+'/'+q.target+'</span><button data-winc="'+q.id+'">＋</button></div></div>';}
       else{const on=!!st.done;body+='<div class="crow"><button class="ck '+(on?"on":"")+'" data-wchk="'+q.id+'">'+(on?"✓":"")+'</button><span class="ctitle '+(on?"done":"")+'">'+escapeHtml(q.title)+'</span></div>';}
     });});
   if(!chars.length)body=emptyHtml("설정에서 캐릭터·퀘스트 추가");
-  el.innerHTML='<div class="sec"><span>이번 주 · 와우</span><span class="r" style="color:var(--wow)">'+mdShort(rg[0])+"~"+mdShort(rg[1])+'</span></div>'+body;
+  el.innerHTML='<div class="sec"><span>Weekly Checklist · WoW</span><span class="r" style="color:var(--wow)">'+mdShort(rg[0])+"~"+mdShort(rg[1])+'</span></div>'+body;
   el.querySelectorAll("[data-wchk]").forEach(x=>x.onclick=()=>{toggleWowCheck(DB.wowQuests.find(z=>z.id===x.dataset.wchk),selDate);refreshDay();});
   el.querySelectorAll("[data-winc]").forEach(x=>x.onclick=()=>{wowCounter(DB.wowQuests.find(z=>z.id===x.dataset.winc),selDate,1);refreshDay();});
   el.querySelectorAll("[data-wdec]").forEach(x=>x.onclick=()=>{wowCounter(DB.wowQuests.find(z=>z.id===x.dataset.wdec),selDate,-1);refreshDay();});
