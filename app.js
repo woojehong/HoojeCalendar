@@ -425,7 +425,7 @@ function buildMonthGrid(){
       const cs=Math.max(0,Math.round((startOfDay(s)-startOfDay(wkStart))/86400000));
       const ce=Math.min(6,Math.round((startOfDay(e)-startOfDay(wkStart))/86400000));
       segs.push({ev,cs,ce,span:ce-cs+1});});
-    segs.sort((a,b)=>(b.span-a.span)||(a.cs-b.cs));
+    segs.sort(function(a,b){var aa=(a.ev.allDay||a.span>1)?0:1;var bb=(b.ev.allDay||b.span>1)?0:1;if(aa!==bb)return aa-bb;if(aa===0)return (b.span-a.span)||(a.cs-b.cs);return toMin(a.ev.start||"00:00")-toMin(b.ev.start||"00:00");});
     const lanes=[],overflow=new Array(7).fill(0);
     segs.forEach(seg=>{
       let placed=-1;
@@ -437,7 +437,7 @@ function buildMonthGrid(){
       const el=document.createElement("div");el.className="item clip";
       el.style.top=(LT+placed*LH)+"px";el.style.left="calc("+(seg.cs/7*100)+"% + 3px)";el.style.width="calc("+(seg.span/7*100)+"% - 6px)";
       el.style.background=hexToRgba(c.color,isBar?0.30:0.22);el.style.color=lighten(c.color,isBar?60:55);
-      if(!isBar&&seg.ev.start&&!seg.ev.allDay){el.innerHTML='<span class="ev-h">'+seg.ev.start.slice(0,2)+'</span>'+escapeHtml(seg.ev.title);}else{el.textContent=seg.ev.title;}
+      if(!isBar){if(seg.ev.allDay){el.innerHTML='<span class="ev-h">종</span>'+escapeHtml(seg.ev.title);}else if(seg.ev.start){el.innerHTML='<span class="ev-h">'+seg.ev.start.slice(0,2)+'</span>'+escapeHtml(seg.ev.title);}else{el.textContent=seg.ev.title;}}else{el.textContent=seg.ev.title;}
       el.onclick=e=>{e.stopPropagation();openEventPreview(seg.ev._id,e.currentTarget);};
       wk.appendChild(el);
     });
@@ -969,32 +969,39 @@ function openHappyLog(logId){
 
 /* ===== 디테일 페이지 (하루 총망라) ===== */
 function openDetailDay(dstr){
-  var d=parseYmd(dstr);var isToday=dstr===dayKeyNow();var isFuture=dstr>dayKeyNow();
-  var insts=instancesOnDay(dstr);
-  var allday=insts.filter(function(e){return e.allDay;});
-  var rows=[];
-  insts.filter(function(e){return !e.allDay&&e.start;}).forEach(function(ev){var c=catById(ev.catId);var xt=(DB.expenses||[]).filter(function(x){return x.eventId===ev._id&&x.date===dstr;}).reduce(function(su,x){return su+(Number(x.amount)||0);},0);rows.push({t:tlMin(ev.start),time:ev.start,color:c.color,label:escapeHtml(ev.title)+(ev.end?' <small style="color:var(--faint)">~'+ev.end+'</small>':'')+(xt?' <small style="color:var(--gold-bright)">'+won(xt)+'</small>':''),act:{ev:ev._id}});});
-  (DB.counterLogs||[]).filter(function(l){return l.date===dstr;}).forEach(function(l){var c=counterById(l.counterId);if(!c)return;var cat=catById(c.catId);var sm=logSummary(c,l);rows.push({t:tlMin(l.time),time:l.time,color:cat.color,label:escapeHtml(c.name)+(sm?' <small style="color:var(--faint)">'+escapeHtml(sm)+'</small>':''),act:{clog:l.counterId,clid:l.id}});});
-  DB.routines.filter(function(r){return r.cadence==="daily"&&routineIsDone(r,dstr);}).forEach(function(r){var st=routineState(r,dstr);var note=st&&st.note;var tm=(note&&note.type==="time"&&note.val)?note.val:r.time;if(!tm)return;var c=catById(r.catId);var lab=(note&&note.type==="pass")?('✕ '+escapeHtml(r.title)+' <small style="color:var(--faint)">패스'+(note.val?" · "+escapeHtml(note.val):"")+'</small>'):('✓ '+escapeHtml(r.title));rows.push({t:tlMin(tm),time:tm,color:c.color,label:lab,act:{rt:r.id}});});
-  if(DB.happyOn){(DB.happyLogs||[]).filter(function(l){return l.date===dstr;}).forEach(function(l){rows.push({t:tlMin(l.time),time:l.time,color:"#ED93B1",label:happySummary(l),act:{hl:l.id}});});}
-  rows.sort(function(a,b){return a.t-b.t;});
-  var untimedDone=DB.routines.filter(function(r){return r.cadence==="daily"&&!r.time&&routineIsDone(r,dstr);});
-  var top="";
-  allday.forEach(function(ev){var c=catById(ev.catId);var xt=(DB.expenses||[]).filter(function(x){return x.eventId===ev._id&&x.date===dstr;}).reduce(function(su,x){return su+(Number(x.amount)||0);},0);top+='<div class="drow" data-dev="'+ev._id+'"><span class="dtime">종일</span><span class="ddot" style="background:'+c.color+'"></span><span class="dlabel clip">'+escapeHtml(ev.title)+(xt?' <small style="color:var(--gold-bright)">'+won(xt)+'</small>':'')+'</span></div>';});
-  untimedDone.forEach(function(r){var c=catById(r.catId);top+='<div class="drow"><span class="dtime">—</span><span class="ddot" style="background:'+c.color+'"></span><span class="dlabel clip">✓ '+escapeHtml(r.title)+'</span></div>';});
-  var listHtml=rows.map(function(r,i){return '<div class="drow" data-didx="'+i+'"><span class="dtime">'+r.time+'</span><span class="ddot" style="background:'+r.color+'"></span><span class="dlabel clip">'+r.label+'</span></div>';}).join("");
-  var body=top+listHtml;
-  if(!body)body=emptyHtml(isFuture?"예정된 일정 없음":"기록 없음");
+  var d=parseYmd(dstr);var isToday=dstr===dayKeyNow();
   var ov=document.createElement("div");ov.className="detail-overlay";
-  ov.innerHTML='<div class="d-head"><button class="d-back" id="dBack"><i class="ti ti-chevron-left"></i></button><div class="d-title">'+(isToday?"오늘":(d.getMonth()+1)+"월 "+d.getDate()+"일")+' <small style="color:var(--muted);font-weight:400">'+DOW_KO[d.getDay()]+'</small></div></div><div class="d-body">'+body+'</div>';
+  ov.innerHTML='<div class="d-head"><button class="d-back" id="dBack"><i class="ti ti-chevron-left"></i></button><div class="d-title">'+(isToday?"오늘":(d.getMonth()+1)+"월 "+d.getDate()+"일")+' <small style="color:var(--muted);font-weight:400">'+DOW_KO[d.getDay()]+'</small></div></div><div class="det-scroll"><div class="timeline det-tl" id="detTL"></div></div>';
   document.body.appendChild(ov);
   try{history.pushState({hoojeDetail:1},"");}catch(e){}
   function onPop(){if(ov.parentNode)document.body.removeChild(ov);window.removeEventListener("popstate",onPop);}
   window.addEventListener("popstate",onPop);
-  function close(){try{history.back();}catch(e){if(ov.parentNode)document.body.removeChild(ov);}}
-  ov.querySelector("#dBack").onclick=close;
-  ov.querySelectorAll("[data-dev]").forEach(function(x){x.onclick=function(){close();openEditor(masterOf(x.dataset.dev));};});
-  ov.querySelectorAll("[data-didx]").forEach(function(x){x.onclick=function(){var r=rows[+x.dataset.didx];close();var a=r.act;if(a.ev)openEditor(masterOf(a.ev));else if(a.clog)openCounterLog(a.clog,a.clid);else if(a.rt)openRoutineEditor(DB.routines.find(function(z){return z.id===a.rt;}));else if(a.hl)openHappyLog(a.hl);};});
+  ov.querySelector("#dBack").onclick=function(){try{history.back();}catch(e){onPop();}};
+  buildDetailTimeline(ov.querySelector("#detTL"),dstr,isToday);
+}
+function buildDetailTimeline(tl,dstr,autoScroll){
+  var insts=instancesOnDay(dstr);
+  var dayFill=insts.filter(function(e){return e.allDay;});
+  var timed=insts.filter(function(e){return !e.allDay&&e.start;});
+  var S=360,E=1800,PPM=58/60,total=(E-S)*PPM;
+  tl.innerHTML="";tl.style.height=total+"px";
+  var axis=document.createElement("div");axis.className="axis";tl.appendChild(axis);
+  for(var h=6;h<=30;h++){var hp=(h*60-S)*PPM;var l=document.createElement("div");l.className="hr-label";l.style.top=hp+"px";l.textContent=pad(h>=24?h-24:h);tl.appendChild(l);if(h>6){var ln=document.createElement("div");ln.className="hr-line";ln.style.top=hp+"px";tl.appendChild(ln);}}
+  dayFill.forEach(function(ev,i){var c=catById(ev.catId);var nn=Math.max(1,dayFill.length);var el=document.createElement("div");el.className="tl-fill";el.style.top="0";el.style.height=total+"px";el.style.left="calc("+(i/nn*100)+"%)";el.style.width="calc("+(100/nn)+"% - 4px)";el.style.background=hexToRgba(c.color,0.13);el.style.borderLeft="3px solid "+c.color;el.innerHTML='<div class="clip" style="font-size:11px;color:var(--text);padding:5px 8px;font-weight:500">'+escapeHtml(ev.title)+' · 종일</div>';el.onclick=function(){openEventPreview(ev._id,el);};tl.appendChild(el);});
+  var evs=timed.slice().sort(function(a,b){return tlMin(a.start)-tlMin(b.start);});
+  evs.forEach(function(ev){var c=catById(ev.catId);var st=tlMin(ev.start),en=tlMin(ev.end||ev.start);if(en<=st)en+=1440;var dur=en-st;var top=(st-S)*PPM;
+    if(dur<15){var el=document.createElement("div");el.className="tl-point";el.style.top=top+"px";el.style.borderTopColor=c.color;el.innerHTML='<span class="clip"><b style="color:'+lighten(c.color,55)+'">'+ev.start+'</b> <span style="color:'+lighten(c.color,45)+'">'+escapeHtml(ev.title)+'</span></span>';el.onclick=function(){openEventPreview(ev._id,el);};tl.appendChild(el);
+    }else{var ov2=evs.filter(function(o){var os=tlMin(o.start),oe=tlMin(o.end||o.start);if(oe<=os)oe+=1440;return (oe-os)>=15&&os<en&&oe>st;});var cols=Math.max(1,ov2.length),col=Math.max(0,ov2.indexOf(ev)),w=62/cols;
+      var el=document.createElement("div");el.className="ev";el.style.top=top+"px";el.style.height=Math.max(20,dur*PPM)+"px";el.style.left="calc("+(col*w)+"% + 6px)";el.style.width="calc("+w+"% - 8px)";el.style.background=hexToRgba(c.color,0.2);el.style.borderLeft="3px solid "+c.color;el.style.color=lighten(c.color,60);
+      el.innerHTML='<div class="clip"><span class="et">'+ev.start+'</span>'+escapeHtml(ev.title)+'</div>'+(ev.note&&dur*PPM>30?'<div class="clip es">'+escapeHtml(ev.note)+'</div>':'');
+      el.onclick=function(){openEventPreview(ev._id,el);};tl.appendChild(el);}
+  });
+  function marker(t,color,text,onclick){var mtop=(tlMin(t)-S)*PPM;var m=document.createElement("div");m.className="dmark";m.style.top=mtop+"px";m.style.borderTopColor=color;var chip=document.createElement("span");chip.className="dmark-l";chip.style.color=lighten(color,55);chip.style.background=hexToRgba(color,0.2);chip.textContent=t+" "+text;chip.onclick=onclick;m.appendChild(chip);tl.appendChild(m);}
+  (DB.counterLogs||[]).filter(function(l){return l.date===dstr;}).forEach(function(l){var c=counterById(l.counterId);if(!c)return;var cat=catById(c.catId);var sm=logSummary(c,l);marker(l.time,cat.color,c.name+(sm?" · "+sm:""),function(){openCounterLog(l.counterId,l.id);});});
+  DB.routines.filter(function(r){return r.cadence==="daily"&&routineIsDone(r,dstr);}).forEach(function(r){var st=routineState(r,dstr);var note=st&&st.note;var tm=(note&&note.type==="time"&&note.val)?note.val:r.time;if(!tm)return;var c=catById(r.catId);marker(tm,c.color,"✓ "+r.title,function(){openRoutineEditor(r);});});
+  if(DB.happyOn)(DB.happyLogs||[]).filter(function(l){return l.date===dstr;}).forEach(function(l){marker(l.time,"#ED93B1",happySummary(l),function(){openHappyLog(l.id);});});
+  if(dstr===dayKeyNow()){var now=new Date();var nm=now.getHours()*60+now.getMinutes();var nt=nm<360?nm+1440:nm;if(nt>=S&&nt<=E){var line=document.createElement("div");line.className="now-line";line.style.top=((nt-S)*PPM)+"px";tl.appendChild(line);}}
+  if(autoScroll){var sc=tl.parentElement;if(sc){var now2=new Date();var m2=now2.getHours()*60+now2.getMinutes();var t2=m2<360?m2+1440:m2;setTimeout(function(){sc.scrollTop=Math.max(0,(t2-90-S)*PPM);},0);}}
 }
 
 /* ===== 골드 (와우 골드 장부) ===== */
@@ -1016,11 +1023,11 @@ function renderGoldPage(){
   var dates=Object.keys(byDate).sort(function(a,b){return b.localeCompare(a);});
   var rowsHtml=dates.map(function(d){var dd=parseYmd(d);
     var items=byDate[d].map(function(l){
-      if(l.type==="raid")return '<div class="grow" data-graid="'+(l.eventId||"")+'"><span class="gdot" style="background:var(--wow)"></span><div class="gmain"><div class="gtop"><span class="gname">레이드 분배금</span><span class="gamt" style="color:var(--wow)">+'+gnum(l.gold)+'G</span></div></div></div>';
-      if(l.type==="craft")return '<div class="grow" data-gcraft="'+l.id+'"><span class="gdot" style="background:var(--gold)"></span><div class="gmain"><div class="gtop"><span class="gname">제작 정산</span><span class="gamt" style="color:var(--gold-bright)">+'+gnum((Number(l.fee)||0)+(Number(l.material)||0))+'G</span></div><div class="gsub">수수료 '+gnum(l.fee)+'G · 재료 '+gnum(l.material)+'G</div></div></div>';
-      return '<div class="grow" data-gsale="'+l.id+'"><span class="gdot" style="background:var(--green)"></span><div class="gmain"><div class="gtop"><span class="gname">골드 판매 · '+escapeHtml(l.buyer||"")+'</span><span class="gamt gcash">'+won(l.cash)+'</span></div><div class="gsub">'+gnum(l.gold)+'G · 시세 1:'+saleRatio(l)+'</div></div></div>';
+      if(l.type==="raid")return '<div class="grow" data-graid="'+(l.eventId||"")+'"><span class="gdot" style="background:var(--wow)"></span><div class="gmain"><div class="gtop"><span class="gname">레이드 분배금</span><span class="gamt" style="color:var(--gold-bright)">+'+gnum(l.gold)+' 골드</span></div></div></div>';
+      if(l.type==="craft")return '<div class="grow" data-gcraft="'+l.id+'"><span class="gdot" style="background:var(--gold)"></span><div class="gmain"><div class="gtop"><span class="gname">제작 정산</span><span class="gamt" style="color:var(--gold-bright)">+'+gnum((Number(l.fee)||0)+(Number(l.material)||0))+' 골드</span></div><div class="gsub">수수료 '+gnum(l.fee)+' · 재료 '+gnum(l.material)+'</div></div></div>';
+      return '<div class="grow" data-gsale="'+l.id+'"><span class="gdot" style="background:var(--green)"></span><div class="gmain"><div class="gtop"><span class="gname">골드 판매 · '+escapeHtml(l.buyer||"")+'</span><span class="gamt gcash">'+won(l.cash)+'</span></div><div class="gsub"><span style="color:var(--gold-bright)">'+gnum(l.gold)+' 골드</span> · 시세 1:'+saleRatio(l)+'</div></div></div>';
     }).join("");
-    return '<div class="charlabel">'+(dd.getMonth()+1)+'/'+dd.getDate()+' '+DOW_KO[dd.getDay()]+'</div>'+items;
+    return '<div class="gdate">'+(dd.getMonth()+1)+'/'+dd.getDate()+' '+DOW_KO[dd.getDay()]+'</div>'+items;
   }).join("");
   host.innerHTML='<div class="page-head"><div class="page-title">골드</div><div style="display:flex;gap:6px"><button class="btn sm ghost" id="goldCraftAdd">＋ 제작</button><button class="btn gold sm" id="goldSaleAdd">＋ 판매</button></div></div>'+
     '<div class="seg g" style="margin-bottom:14px">'+segs+'</div>'+
@@ -1248,7 +1255,7 @@ function showApp(){
 function loginErr(m){ var n=document.querySelector(".login-note"); if(n){ n.textContent=m; n.style.color="#e2554e"; } }
 function boot(){
   firebase.initializeApp(window.FIREBASE_CONFIG);
-  console.log("HOOJE build: auth-idpin-v6");
+  console.log("HOOJE build: gold-ui-v7");
   FB.auth=firebase.auth(); FB.db=firebase.firestore();
   try{ FB.auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL); }catch(e){}
   var lb=document.getElementById("loginBtn"), pinEl=document.getElementById("loginPin");
