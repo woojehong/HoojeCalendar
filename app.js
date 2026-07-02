@@ -79,6 +79,9 @@ function defaultData(){
     ],
   };
 }
+const CARD_BLOCKS={remain:1,daily:1,weekGeneral:1,weekWow:1,counters:1,focus:1,health:1,upcoming:1,stats:1};
+const WOW_CLASSES={"전사":"#C69B6D","성기사":"#F48CBA","사냥꾼":"#AAD372","도적":"#FFF468","사제":"#F5F5F5","죽음의 기사":"#C41E3A","주술사":"#0070DD","마법사":"#3FC7EB","흑마법사":"#8788EE","수도사":"#00FF98","드루이드":"#FF7C0A","악마사냥꾼":"#A330C9","기원사":"#33937F"};
+function wowClassColor(ch){return (ch&&ch.class&&WOW_CLASSES[ch.class])||"#a8a4ff";}
 const BLOCK_NAMES={stats:"통계 요약",timeline:"이 날 일정 (타임라인)",remain:"오늘 일정",daily:"이 날 체크리스트 (일일)",weekGeneral:"이번 주 · 일반",weekWow:"이번 주 · 와우",counters:"카운터",focus:"Focus List",health:"건강 요약",upcoming:"다가오는 일정 (3일)"};
 
 let DB;
@@ -319,6 +322,7 @@ function openWorkoutList(cid){
 
 /* ===== UI state ===== */
 let curTab="home";
+var tabPushed=false;
 let viewMonth=new Date(todayD().getFullYear(),todayD().getMonth(),1);
 let selDate=dayKeyNow();
 var expMonth=ymd(todayD()).slice(0,7);
@@ -337,8 +341,7 @@ function refreshDay(){
 }
 function renderDayDesktop(host){
   var d=parseYmd(selDate), isToday=selDate===dayKeyNow();
-  host.innerHTML='<div class="sec" style="margin-top:6px"><span style="cursor:pointer" data-detail>'+(isToday?"오늘":(d.getMonth()+1)+"월 "+d.getDate()+"일")+' <small style="color:var(--faint)">'+DOW_KO[d.getDay()]+'</small> · 시간표</span><span class="sec-tools"><button class="btn sm ghost" data-detail><i class="ti ti-list-details"></i> Daily Detail</button><span class="add" data-add>＋ 일정</span></span></div><div id="dpAllday"></div><div class="tl-scroll"><div class="timeline" id="dpTL"></div></div>';
-  host.querySelector("[data-add]").onclick=function(){ openEditor(null,{date:selDate}); };
+  host.innerHTML='<div class="sec" style="margin-top:6px"><span style="cursor:pointer" data-detail>'+(isToday?"오늘 · ":"")+(d.getMonth()+1)+'월 '+d.getDate()+'일 '+DOW_KO[d.getDay()]+'요일</span><span class="sec-tools"><button class="btn sm" data-detail><i class="ti ti-list-details"></i> Daily Detail</button></span></div><div id="dpAllday"></div><div class="tl-scroll"><div class="timeline" id="dpTL"></div></div>';
   host.querySelectorAll("[data-detail]").forEach(function(x){x.onclick=function(){ openDetailDay(selDate); };});
   buildTimeline(document.getElementById("dpTL"),document.getElementById("dpAllday"),selDate,true);
 }
@@ -376,15 +379,15 @@ function blkRemaining(el){
 function renderChkDesktop(host){
   var allow={remain:1,daily:1,weekGeneral:1,weekWow:1,counters:1,focus:1,health:1,upcoming:1};
   var html='<div class="chk-top"><button class="iconbtn" id="chkEdit" title="섹션 편집·순서"><i class="ti ti-adjustments-horizontal"></i></button></div>';
-  DB.hubBlocks.forEach(function(b){if(b.on&&allow[b.id])html+='<div id="blk-'+b.id+'"></div>';});
+  DB.hubBlocks.forEach(function(b){if(b.on&&allow[b.id])html+='<div id="blk-'+b.id+'" class="hub-card"></div>';});
   host.innerHTML=html;
   document.getElementById("chkEdit").onclick=openHubEdit;
   DB.hubBlocks.forEach(function(b){if(b.on&&allow[b.id]){var e=document.getElementById("blk-"+b.id);if(e)renderBlock(b.id,e);}});
 }
 function renderHome(){
   const host=document.getElementById("tab-home");
-  const legend=DB.categories.map(c=>'<span><i class="dot" style="background:'+c.color+'"></i>'+escapeHtml(c.name)+'</span>').join("");
-  const mhead='<div class="mhead"><div><span class="mtitle" id="mTitle"></span><span class="myear" id="mYear"></span></div><div class="nav"><button id="prevM" aria-label="이전 달">‹</button><button class="today-btn" id="todayM">오늘</button><button id="nextM" aria-label="다음 달">›</button></div></div>';
+  const legend=DB.categories.filter(function(c){return !c.secret||DB.happyOn;}).map(c=>'<span class="leg-dot" title="'+escapeHtml(c.name)+'" data-legname="'+escapeHtml(c.name)+'"><i class="dot" style="background:'+c.color+'"></i></span>').join("");
+  const mhead='<div class="mhead"><div><span class="mtitle" id="mTitle"></span><span class="myear" id="mYear"></span></div><div class="nav"><button id="prevM" aria-label="이전 달">‹</button><button class="today-btn" id="todayM">Today</button><button id="nextM" aria-label="다음 달">›</button></div></div>';
   const dow='<div class="dow"><div style="color:var(--sat)">일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div style="color:var(--sun)">토</div></div>';
   if(isDesktop()){
     host.innerHTML='<div class="home"><div class="cal-col"><div class="legend">'+legend+'</div>'+mhead+dow+'<div class="grid" id="calGrid"></div><div style="height:0.5px;background:var(--line);margin:14px 0"></div><div id="dayPanel"></div></div><div class="hub-col" id="hubCol"></div></div>';
@@ -394,6 +397,7 @@ function renderHome(){
   document.getElementById("prevM").onclick=()=>{viewMonth.setMonth(viewMonth.getMonth()-1);buildMonthGrid();};
   document.getElementById("nextM").onclick=()=>{viewMonth.setMonth(viewMonth.getMonth()+1);buildMonthGrid();};
   document.getElementById("todayM").onclick=()=>{viewMonth=new Date(todayD().getFullYear(),todayD().getMonth(),1);selDate=dayKeyNow();refreshDay();};
+  document.querySelectorAll("[data-legname]").forEach(function(x){x.onclick=function(){toast(x.dataset.legname);};});
   var _bl=host.querySelector(".brandline");if(_bl)addLongPress(_bl,toggleHappy);
   refreshDay();
 }
@@ -459,7 +463,7 @@ function renderHub(){
   let html='<div class="hub-head"><span class="d" id="hubDate" style="cursor:pointer">'+(isToday?"오늘 · ":"")+(d.getMonth()+1)+'월 '+d.getDate()+'일 <small>'+DOW_KO[d.getDay()]+'</small></span>'+
     '<button class="iconbtn" id="hubDetail" title="Daily Detail"><i class="ti ti-list-details"></i></button><button class="iconbtn" id="hubEdit"><i class="ti ti-adjustments-horizontal"></i></button></div>'+
     '';
-  DB.hubBlocks.forEach(b=>{if(b.on&&b.id!=="remain")html+='<div id="blk-'+b.id+'"></div>';});
+  DB.hubBlocks.forEach(b=>{if(b.on&&b.id!=="remain")html+='<div id="blk-'+b.id+'"'+(CARD_BLOCKS[b.id]?' class="hub-card"':"")+'></div>';});
   host.innerHTML=html;
   document.getElementById("hubEdit").onclick=openHubEdit;
   var _hd=document.getElementById("hubDetail");if(_hd)_hd.onclick=function(){openDetailDay(selDate);};
@@ -594,7 +598,7 @@ function blkWeekWow(el){
     var qs=DB.wowQuests.filter(function(q){return q.charId===ch.id;});
     var cdone=qs.filter(qDone).length;
     var ccol=!!(DB.wowCollapse&&DB.wowCollapse[ch.id]);
-    body+='<div class="charlabel wchar" data-wchar="'+ch.id+'"><span>'+escapeHtml(ch.name)+'</span><span class="wchar-r">'+cdone+'/'+qs.length+' <i class="ti ti-chevron-'+(ccol?"right":"down")+'"></i></span></div>';
+    body+='<div class="charlabel wchar" data-wchar="'+ch.id+'"><span style="color:'+wowClassColor(ch)+'">'+escapeHtml(ch.name)+'</span><span class="wchar-r">'+cdone+'/'+qs.length+' <i class="ti ti-chevron-'+(ccol?"right":"down")+'"></i></span></div>';
     if(ccol)return;
     var vis=qs.filter(function(q){return b.showDone||!qDone(q);});
     vis.forEach(function(q){var st=p[q.id]||{};
@@ -1195,10 +1199,10 @@ function renderSettings(){
   const routs=DB.routines.map(r=>'<div class="qrow"><span class="qtitle clip">'+escapeHtml(r.title)+' <span class="sub">· '+(r.cadence==="daily"?"매일":"주간")+(r.time?" "+r.time:"")+'</span></span><button class="btn ghost sm" data-editrt="'+r.id+'">수정</button></div>').join("");
   let wow="";
   DB.wowChars.forEach(ch=>{const qs=DB.wowQuests.filter(q=>q.charId===ch.id);
-    wow+='<div class="qrow"><span class="qtitle">'+escapeHtml(ch.name)+' <span class="sub">· 퀘 '+qs.length+'</span></span><span><button class="btn ghost sm" data-addq="'+ch.id+'">＋퀘</button> <button class="btn ghost sm" data-delchar="'+ch.id+'">삭제</button></span></div>';
+    wow+='<div class="qrow"><span class="qtitle"><i class="dot" style="background:'+wowClassColor(ch)+';margin-right:8px"></i>'+escapeHtml(ch.name)+' <span class="sub">· 퀘 '+qs.length+'</span></span><span><button class="btn ghost sm" data-editchar="'+ch.id+'">수정</button> <button class="btn ghost sm" data-addq="'+ch.id+'">＋퀘</button> <button class="btn ghost sm" data-delchar="'+ch.id+'">삭제</button></span></div>';
     qs.forEach(q=>{wow+='<div class="qrow" style="padding-left:14px"><span class="qtitle clip sub">· '+escapeHtml(q.title)+(q.type==="counter"?" ("+q.target+")":"")+'</span><button class="btn ghost sm" data-delq="'+q.id+'">×</button></div>';});});
   host.innerHTML='<div class="page-head"><div class="page-title">설정</div></div>'+
-    '<div class="card"><div class="card-h"><span class="name">카테고리</span><button class="btn ghost sm" id="addCat">＋ 추가</button></div>'+cats+'<div class="sub" style="margin-top:8px">색만 정하면 어디서나 반영. \'연애\' 같은 것도 추가 가능.</div></div>'+
+    '<div class="card"><div class="card-h"><span class="name">카테고리</span><button class="btn ghost sm" id="addCat">＋ 추가</button></div>'+cats+'</div>'+
     '<div class="card"><div class="card-h"><span class="name">루틴 (체크리스트)</span><button class="btn ghost sm" id="addRt">＋ 추가</button></div>'+(routs||'<div class="sub">없음</div>')+'</div>'+
     '<div class="card"><div class="card-h"><span class="name">와우 캐릭터·퀘스트</span><button class="btn ghost sm" id="addChar">＋ 캐릭</button></div>'+wow+'</div>'+
     '<div class="card"><div class="card-h"><span class="name">기본 규칙</span></div>'+
@@ -1214,6 +1218,7 @@ function renderSettings(){
   host.querySelectorAll("[data-editcat]").forEach(b=>b.onclick=()=>editCat(b.dataset.editcat));
   host.querySelectorAll("[data-editrt]").forEach(b=>b.onclick=()=>openRoutineEditor(DB.routines.find(r=>r.id===b.dataset.editrt)));
   q("#addChar").onclick=()=>{const n=prompt("캐릭터 이름");if(n&&n.trim()){DB.wowChars.push({id:uid(),name:n.trim()});save();renderSettings();}};
+  host.querySelectorAll("[data-editchar]").forEach(b=>b.onclick=()=>openCharEditor(b.dataset.editchar));
   host.querySelectorAll("[data-addq]").forEach(b=>b.onclick=()=>addQuest(b.dataset.addq));
   host.querySelectorAll("[data-delchar]").forEach(b=>b.onclick=()=>{if(confirm("이 캐릭터와 퀘스트를 삭제할까요?")){const id=b.dataset.delchar;DB.wowChars=DB.wowChars.filter(c=>c.id!==id);DB.wowQuests=DB.wowQuests.filter(x=>x.charId!==id);save();renderSettings();}});
   host.querySelectorAll("[data-delq]").forEach(b=>b.onclick=()=>{DB.wowQuests=DB.wowQuests.filter(x=>x.id!==b.dataset.delq);save();renderSettings();});
@@ -1232,6 +1237,19 @@ function editCat(id){
     if(id){const cc=DB.categories.find(x=>x.id===id);cc.name=name;cc.color=color;}else DB.categories.push({id:c.id,name,color});
     save();closeModal();renderSettings();toast("저장됨");};
   const del=q("#cDel");if(del)del.onclick=()=>{if(confirm("이 카테고리를 삭제할까요? (일정은 남습니다)")){DB.categories=DB.categories.filter(x=>x.id!==id);save();closeModal();renderSettings();}};
+}
+function openCharEditor(charId){
+  var ch=DB.wowChars.find(function(c){return c.id===charId;});if(!ch)return;
+  var opts=Object.keys(WOW_CLASSES).map(function(k){return '<option value="'+k+'"'+(ch.class===k?" selected":"")+'>'+k+'</option>';}).join("");
+  var root=document.getElementById("modalRoot");
+  root.innerHTML='<div class="sheet"><div class="sheet-h"><span class="title">캐릭터 편집</span><button class="x" id="mX">×</button></div>'+
+    '<div class="field"><label>이름</label><input type="text" id="chName" value="'+escapeHtml(ch.name)+'"/></div>'+
+    '<div class="field"><label>클래스 (클래스 컬러 적용)</label><select id="chClass"><option value="">— 선택 —</option>'+opts+'</select></div>'+
+    '<div class="sheet-actions"><button class="btn danger" id="chDel">삭제</button><button class="btn gold" id="chSave">저장</button></div></div>';
+  root.hidden=false;root.onclick=function(x){if(x.target===root)closeModal();};
+  var q=function(sel){return root.querySelector(sel);};q("#mX").onclick=closeModal;
+  q("#chSave").onclick=function(){var name=q("#chName").value.trim();if(!name){toast("이름을 입력해주세요");return;}var i=DB.wowChars.findIndex(function(c){return c.id===ch.id;});DB.wowChars[i]={id:ch.id,name:name,class:q("#chClass").value||undefined};save();closeModal();renderSettings();toast("저장됨");};
+  q("#chDel").onclick=function(){if(confirm("이 캐릭터와 퀘스트를 삭제할까요?")){DB.wowChars=DB.wowChars.filter(function(c){return c.id!==ch.id;});DB.wowQuests=DB.wowQuests.filter(function(x){return x.charId!==ch.id;});save();closeModal();renderSettings();}};
 }
 function addQuest(charId){
   const root=document.getElementById("modalRoot");
@@ -1252,12 +1270,13 @@ function addQuest(charId){
 function updateHappyUI(){ if(document&&document.body) document.body.classList.toggle("happy-on",!!(DB&&DB.happyOn)); }
 function toggleHappy(){ DB.happyOn=!DB.happyOn; save(); updateHappyUI(); if(!DB.happyOn&&curTab==="happy"){switchTab("home");} else { render(curTab); } toast(DB.happyOn?"해피 켜짐":"해피 꺼짐"); }
 function addLongPress(el,fn){ var t=null; function st(){t=setTimeout(function(){t=null;fn();},600);} function cx(){if(t){clearTimeout(t);t=null;}} el.addEventListener("touchstart",st,{passive:true}); el.addEventListener("touchend",cx); el.addEventListener("touchmove",cx); el.addEventListener("mousedown",st); el.addEventListener("mouseup",cx); el.addEventListener("mouseleave",cx); }
-function switchTab(name){
+function switchTab(name,fromPop){
   curTab=name;
   document.querySelectorAll(".tab").forEach(s=>s.hidden=s.id!=="tab-"+name);
   document.querySelectorAll("#railNav button,#tabbar button[data-tab]").forEach(b=>b.classList.toggle("active",b.dataset.tab===name));
   updateHappyUI();
   if(name==="home")renderHome();else if(name==="expense")renderExpensePage();else if(name==="gold")renderGoldPage();else if(name==="happy")renderHappyPage();else if(name==="stats")renderStatsPage();else if(name==="settings")renderSettings();
+  if(!fromPop){ if(name==="home"){tabPushed=false;} else if(!tabPushed){try{history.pushState({hoojeSub:1},"");}catch(e){}tabPushed=true;} }
 }
 let toastTimer=null;
 function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.hidden=true,2200);}
@@ -1268,6 +1287,7 @@ function bindNav(){
   document.getElementById("fab").onclick=function(){openEditor(null,{date:selDate});};
   document.getElementById("railAdd").onclick=function(){openEditor(null,{date:selDate});};
   var rs=document.getElementById("railSecret");if(rs)rs.onclick=toggleHappy;
+  window.addEventListener("popstate",function(){ if(document.querySelector(".detail-overlay")||document.querySelector(".ev-preview-bg"))return; if(tabPushed){tabPushed=false;switchTab("home",true);} });
 }
 function showLogin(){ var ls=document.getElementById("loginScreen"); if(ls){ls.style.display="";ls.hidden=false;} document.querySelector(".shell").style.display="none"; }
 function showApp(){
