@@ -350,6 +350,8 @@ var statPeriod="month";
 var goldPeriod="all";
 var catFilter=null;
 var _dayScrollInit=false;
+var focusOpen={};
+var followOpen={};
 
 /* ===== 홈 (달력 + 허브) ===== */
 function isDesktop(){ return window.matchMedia("(min-width:900px)").matches; }
@@ -562,11 +564,12 @@ function blkFollow(el){
     var stat="",inner="",ico="";
     if(it.kind==="kbo"){var s=DB.sportsBoard;if(s)stat=s.rank+"위 · "+escapeHtml(s.streak||"");inner=boardHTML(s);ico='<span class="follow-ico"><i class="ti ti-ball-baseball"></i></span>';}
     else{inner=escapeHtml(it.detail||"").replace(/\n/g,"<br>");}
-    return '<div class="focus-item"><div class="follow-head" data-foltog="'+it.id+'">'+ico+'<span class="focus-title clip">'+escapeHtml(it.title)+'</span><span class="follow-stat">'+stat+'</span><i class="ti ti-chevron-down focus-chev"></i></div><div class="focus-body" data-folbody="'+it.id+'" hidden>'+inner+'</div></div>';
+    var op=!!followOpen[it.id];
+    return '<div class="focus-item"><div class="follow-head" data-foltog="'+it.id+'">'+ico+'<span class="focus-title clip">'+escapeHtml(it.title)+'</span><span class="follow-stat">'+stat+'</span><i class="ti ti-chevron-down focus-chev'+(op?" open":"")+'"></i></div><div class="focus-body" data-folbody="'+it.id+'"'+(op?"":" hidden")+'>'+inner+'</div></div>';
   }).join("");
   el.innerHTML=head+rows;
   bindSectionHead(el,"follow");
-  el.querySelectorAll("[data-foltog]").forEach(function(x){x.onclick=function(){var body=el.querySelector('[data-folbody="'+x.dataset.foltog+'"]');if(body)body.hidden=!body.hidden;var ch=x.querySelector(".focus-chev");if(ch)ch.classList.toggle("open");};});
+  el.querySelectorAll("[data-foltog]").forEach(function(x){x.onclick=function(){var id=x.dataset.foltog;followOpen[id]=!followOpen[id];var body=el.querySelector('[data-folbody="'+id+'"]');if(body)body.hidden=!followOpen[id];var ch=x.querySelector(".focus-chev");if(ch)ch.classList.toggle("open",followOpen[id]);};});
 }
 function checklistRow(r,dstr){
   const c=catById(r.catId);const st=routineState(r,dstr);
@@ -913,11 +916,12 @@ function blkFocus(el){
   if(b.collapsed){el.innerHTML=head;bindSectionHead(el,"focus",function(){openFocusEditor(null);});return;}
   var fl=DB.focusList||[];
   var rows=fl.map(function(f){
-    return '<div class="focus-item"><div class="focus-head" data-ftog="'+f.id+'"><span class="focus-title clip">'+escapeHtml(f.title)+'</span><i class="ti ti-chevron-down focus-chev"></i></div><div class="focus-body" data-fbody="'+f.id+'" hidden>'+escapeHtml(f.detail||"").replace(/\n/g,"<br>")+'<div class="focus-actions"><button class="btn sm ghost" data-fedit="'+f.id+'">편집</button></div></div></div>';
+    var op=!!focusOpen[f.id];
+    return '<div class="focus-item"><div class="focus-head" data-ftog="'+f.id+'"><span class="focus-title clip">'+escapeHtml(f.title)+'</span><i class="ti ti-chevron-down focus-chev'+(op?' open':'')+'"></i></div><div class="focus-body" data-fbody="'+f.id+'"'+(op?'':' hidden')+'>'+escapeHtml(f.detail||"").replace(/\n/g,"<br>")+'<div class="focus-actions"><button class="btn sm ghost" data-fedit="'+f.id+'">편집</button></div></div></div>';
   }).join("");
   el.innerHTML=head+(rows||emptyHtml("＋로 추가하거나 수진이한테 말하세요"));
   bindSectionHead(el,"focus",function(){openFocusEditor(null);});
-  el.querySelectorAll("[data-ftog]").forEach(function(x){x.onclick=function(){var body=el.querySelector('[data-fbody="'+x.dataset.ftog+'"]');if(body)body.hidden=!body.hidden;var ch=x.querySelector(".focus-chev");if(ch)ch.classList.toggle("open");};});
+  el.querySelectorAll("[data-ftog]").forEach(function(x){x.onclick=function(){var id=x.dataset.ftog;focusOpen[id]=!focusOpen[id];var body=el.querySelector('[data-fbody="'+id+'"]');if(body)body.hidden=!focusOpen[id];var ch=x.querySelector(".focus-chev");if(ch)ch.classList.toggle("open",focusOpen[id]);};});
   el.querySelectorAll("[data-fedit]").forEach(function(x){x.onclick=function(e){e.stopPropagation();openFocusEditor((DB.focusList||[]).find(function(z){return z.id===x.dataset.fedit;}));};});
 }
 function openFocusEditor(f){
