@@ -76,15 +76,15 @@ function defaultData(){
     wowProgress:{},
     health:{},
     hubBlocks:[
-      {id:"stats",on:true},{id:"timeline",on:true},{id:"remain",on:true},{id:"daily",on:true},
+      {id:"stats",on:true},{id:"timeline",on:true},{id:"remain",on:true},{id:"follow",on:true,collapsed:false},{id:"daily",on:true},
       {id:"weekGeneral",on:true,collapsed:true},{id:"monthGeneral",on:true,collapsed:true},{id:"weekWow",on:true,collapsed:true},{id:"counters",on:true,collapsed:true},{id:"focus",on:true,collapsed:false},{id:"health",on:false},{id:"upcoming",on:false},
     ],
   };
 }
-const CARD_BLOCKS={remain:1,daily:1,weekGeneral:1,monthGeneral:1,weekWow:1,counters:1,focus:1,health:1,upcoming:1,stats:1};
+const CARD_BLOCKS={remain:1,follow:1,daily:1,weekGeneral:1,monthGeneral:1,weekWow:1,counters:1,focus:1,health:1,upcoming:1,stats:1};
 const WOW_CLASSES={"전사":"#C69B6D","성기사":"#F48CBA","사냥꾼":"#AAD372","도적":"#FFF468","사제":"#F5F5F5","죽음의 기사":"#C41E3A","주술사":"#0070DD","마법사":"#3FC7EB","흑마법사":"#8788EE","수도사":"#00FF98","드루이드":"#FF7C0A","악마사냥꾼":"#A330C9","기원사":"#33937F"};
 function wowClassColor(ch){return (ch&&ch.class&&WOW_CLASSES[ch.class])||"#a8a4ff";}
-const BLOCK_NAMES={stats:"통계 요약",timeline:"이 날 일정 (타임라인)",remain:"오늘 일정",daily:"이 날 체크리스트 (일일)",weekGeneral:"이번 주 · 일반",monthGeneral:"이번 달 · 일반",weekWow:"이번 주 · 와우",counters:"카운터",focus:"Focus List",health:"건강 요약",upcoming:"다가오는 일정 (3일)"};
+const BLOCK_NAMES={stats:"통계 요약",timeline:"이 날 일정 (타임라인)",remain:"오늘 일정",follow:"Following (팔로우)",daily:"이 날 체크리스트 (일일)",weekGeneral:"이번 주 · 일반",monthGeneral:"이번 달 · 일반",weekWow:"이번 주 · 와우",counters:"카운터",focus:"Focus List",health:"건강 요약",upcoming:"다가오는 일정 (3일)"};
 
 let DB;
 function load(){}
@@ -97,10 +97,13 @@ function normalizeDB(){ if(!DB)return;
   if(!DB.goldLogs)DB.goldLogs=[]; if(!DB.goldBuyers)DB.goldBuyers=[];
   if(!DB.wowCollapse)DB.wowCollapse={};
   if(!DB.focusList)DB.focusList=[];
+  if(!DB.followList)DB.followList=[{id:"doosan",title:"두산 베어스",kind:"kbo"}];
+  DB.hubBlocks.forEach(function(b){if(b.id==="sports")b.id="follow";});
   if(!DB.hubBlocks.some(function(b){return b.id==="focus";})){DB.hubBlocks.push({id:"focus",on:true,collapsed:false});}
   if(!DB.categories.some(function(c){return c.id==="happy";}))DB.categories.push({id:"happy",name:"해피",color:"#ED93B1",secret:true});
   if(!DB.counters.some(function(c){return c.kind==="happy";}))DB.counters.push({id:"sajung",name:"해소",catId:"happy",period:"daily",kind:"happy",secret:true,fields:[]});
   if(!DB.hubBlocks.some(function(b){return b.id==="remain";})){var di=DB.hubBlocks.findIndex(function(b){return b.id==="daily";});DB.hubBlocks.splice(di>=0?di:DB.hubBlocks.length,0,{id:"remain",on:true});}
+  if(!DB.hubBlocks.some(function(b){return b.id==="follow";})){var si=DB.hubBlocks.findIndex(function(b){return b.id==="daily";});DB.hubBlocks.splice(si>=0?si:DB.hubBlocks.length,0,{id:"follow",on:true,collapsed:false});}
   if(!DB.hubBlocks.some(function(b){return b.id==="counters";})){var wi=DB.hubBlocks.findIndex(function(b){return b.id==="weekWow";});DB.hubBlocks.splice(wi>=0?wi+1:DB.hubBlocks.length,0,{id:"counters",on:true});}
   if(!DB.hubBlocks.some(function(b){return b.id==="monthGeneral";})){var wgi=DB.hubBlocks.findIndex(function(b){return b.id==="weekGeneral";});DB.hubBlocks.splice(wgi>=0?wgi+1:DB.hubBlocks.length,0,{id:"monthGeneral",on:true,collapsed:true});}
   var cd={weekGeneral:true,monthGeneral:true,weekWow:true,counters:true};
@@ -399,7 +402,7 @@ function blkRemaining(el){
   el.querySelectorAll("[data-ev]").forEach(function(x){x.onclick=function(){openEventPreview(x.dataset.ev,x);};});
 }
 function renderChkDesktop(host){
-  var allow={remain:1,daily:1,weekGeneral:1,monthGeneral:1,weekWow:1,focus:1,health:1,upcoming:1};
+  var allow={remain:1,follow:1,daily:1,weekGeneral:1,monthGeneral:1,weekWow:1,focus:1,health:1,upcoming:1};
   var html='<div class="chk-top"><button class="iconbtn" id="chkEdit" title="섹션 편집·순서"><i class="ti ti-adjustments-horizontal"></i></button></div>';
   DB.hubBlocks.forEach(function(b){if(b.on&&allow[b.id])html+='<div id="blk-'+b.id+'" class="hub-card"></div>';});
   host.innerHTML=html;
@@ -505,6 +508,7 @@ function renderBlock(id,el){
   else if(id==="stats")blkStats(el);
   else if(id==="timeline")blkTimeline(el);
   else if(id==="daily")blkDaily(el);
+  else if(id==="follow")blkFollow(el);
   else if(id==="weekGeneral")blkWeekGen(el);
   else if(id==="monthGeneral")blkMonthGen(el);
   else if(id==="weekWow")blkWeekWow(el);
@@ -525,6 +529,44 @@ function blkStats(el){
     '<div class="stat"><b>'+remain+'</b><span>남은 일정</span></div>'+
     '<div class="stat"><b style="color:var(--gold)">'+done+'/'+dr.length+'</b><span>'+(isToday?"오늘":"이 날")+' 체크</span></div>'+
     '<div class="stat"><b style="color:var(--wow)">D-'+dd+'</b><span>와우 리셋</span></div></div>';
+}
+function fmtGb(g){g=Number(g);if(isNaN(g))return "";return g===0?"선두":g.toFixed(1)+"경기차";}
+function sbAgo(iso){if(!iso)return "";var t=new Date(iso).getTime();if(isNaN(t))return "";var m=Math.floor((Date.now()-t)/60000);if(m<1)return "방금";if(m<60)return m+"분 전";var h=Math.floor(m/60);if(h<24)return h+"시간 전";return Math.floor(h/24)+"일 전";}
+function boardHTML(s){
+  if(!s)return emptyHtml("데이터 수집 대기 중");
+  var scol=/승$/.test(s.streak||"")?"var(--green)":(/패$/.test(s.streak||"")?"#f0736f":"var(--muted)");
+  var last="";
+  if(s.lastGame){var lg=s.lastGame;var rcol=lg.result==="승"?"var(--green)":(lg.result==="패"?"#f0736f":"var(--muted)");
+    var sc=(lg.confirmed&&lg.scoreText)?escapeHtml(lg.scoreText):"스코어 확인 중";
+    last='<div class="sb-row"><span class="sb-k">최근</span><span class="sb-v">'+(lg.opp?"vs "+escapeHtml(lg.opp)+(lg.home?"(홈)":"(원정)")+" ":"")+sc+(lg.result?' <b style="color:'+rcol+'">'+escapeHtml(lg.result)+'</b>':"")+'</span></div>';}
+  var next="";
+  if(s.nextGame){var ng=s.nextGame;next='<div class="sb-row"><span class="sb-k">다음</span><span class="sb-v">'+escapeHtml(ng.date||"")+(ng.dow?"("+escapeHtml(ng.dow)+")":"")+" "+escapeHtml(ng.time||"")+" · vs "+escapeHtml(ng.opp||"")+(ng.home?"(홈)":"(원정)")+(ng.venue?" · "+escapeHtml(ng.venue):"")+'</span></div>';}
+  function gapChip(label,team,gb){return '<span class="sb-gap"><span class="sg-t clip">'+label+' '+escapeHtml(team||"")+'</span><span class="sg-n">'+fmtGb(gb)+'</span></span>';}
+  var chips="";
+  if(s.rank>1)chips+=gapChip("1위",s.topTeam,s.gbTop);
+  if(s.rank>2)chips+=gapChip("▲"+(s.aboveRank||(s.rank-1))+"위",s.aboveTeam,s.gbAbove);
+  if(s.belowTeam)chips+=gapChip("▼"+(s.belowRank||(s.rank+1))+"위",s.belowTeam,s.gbBelow);
+  if(!chips)chips='<span class="sb-gap"><span class="sg-n">선두</span></span>';
+  return '<div class="sb-top"><img class="sb-logo" src="'+((s.logo)||"doosanbears.ico")+'" alt="" onerror="this.style.display=\'none\'"/>'+
+      '<div class="sb-rank"><b>'+(s.rank||"-")+'위</b><span>'+(s.w||0)+'승 '+(s.l||0)+'패 '+(s.d||0)+'무 · '+escapeHtml(s.winPct||"")+'</span></div>'+
+      '<span class="sb-streak" style="color:'+scol+'">'+escapeHtml(s.streak||"")+'</span></div>'+
+    '<div class="sb-gaps">'+chips+'</div>'+last+next+
+    '<div class="sb-upd">'+sbAgo(s.updatedAt)+' 업데이트</div>';
+}
+function blkFollow(el){
+  var b=secState("follow");var list=DB.followList||[];
+  var head=sectionHead("follow","Following",list.length?(""+list.length):"",{});
+  if(b.collapsed){el.innerHTML=head;bindSectionHead(el,"follow");return;}
+  if(!list.length){el.innerHTML=head+emptyHtml("팔로우 항목 없음");bindSectionHead(el,"follow");return;}
+  var rows=list.map(function(it){
+    var stat="",inner="",ico="";
+    if(it.kind==="kbo"){var s=DB.sportsBoard;if(s)stat=s.rank+"위 · "+escapeHtml(s.streak||"");inner=boardHTML(s);ico='<span class="follow-ico"><i class="ti ti-ball-baseball"></i></span>';}
+    else{inner=escapeHtml(it.detail||"").replace(/\n/g,"<br>");}
+    return '<div class="focus-item"><div class="follow-head" data-foltog="'+it.id+'">'+ico+'<span class="focus-title clip">'+escapeHtml(it.title)+'</span><span class="follow-stat">'+stat+'</span><i class="ti ti-chevron-down focus-chev"></i></div><div class="focus-body" data-folbody="'+it.id+'" hidden>'+inner+'</div></div>';
+  }).join("");
+  el.innerHTML=head+rows;
+  bindSectionHead(el,"follow");
+  el.querySelectorAll("[data-foltog]").forEach(function(x){x.onclick=function(){var body=el.querySelector('[data-folbody="'+x.dataset.foltog+'"]');if(body)body.hidden=!body.hidden;var ch=x.querySelector(".focus-chev");if(ch)ch.classList.toggle("open");};});
 }
 function checklistRow(r,dstr){
   const c=catById(r.catId);const st=routineState(r,dstr);

@@ -386,6 +386,9 @@ textarea{resize:vertical;min-height:60px;}
 .focus-chev{color:var(--faint);font-size:15px;transition:transform .15s;flex-shrink:0;}
 .focus-chev.open{transform:rotate(180deg);}
 .focus-body{padding:2px 12px 11px 12px;font-size:12px;color:var(--text2);line-height:1.6;}
+.follow-head{display:flex;align-items:center;gap:8px;padding:8px 11px;cursor:pointer;}
+.follow-ico{color:var(--gold);font-size:14px;display:flex;flex-shrink:0;}
+.follow-stat{font-size:11px;color:var(--muted);flex-shrink:0;}
 .focus-actions{margin-top:8px;}
 
 .hub-card{background:#141a22;border:0.5px solid var(--line);border-radius:12px;padding:10px 12px 12px;margin-bottom:9px;}
@@ -395,3 +398,19 @@ textarea{resize:vertical;min-height:60px;}
 .legend .dot{width:11px;height:11px;}
 .dot.leg-all{background:conic-gradient(from 90deg,#7ab6ff,#5ce593,#a8a4ff,#E0BE5C,#F6AAC5,#7ab6ff);}
 .leg-dot.leg-on .dot{box-shadow:0 0 0 2px var(--bg),0 0 0 3.5px var(--text);}
+
+/* ===== 스포츠 카드 ===== */
+.sb-top{display:flex;align-items:center;gap:10px;margin:8px 0 8px;}
+.sb-logo{width:34px;height:34px;object-fit:contain;border-radius:7px;background:#0d1533;padding:3px;flex-shrink:0;}
+.sb-rank{display:flex;flex-direction:column;line-height:1.25;min-width:0;}
+.sb-rank b{font-size:19px;color:var(--gold);font-weight:700;}
+.sb-rank span{font-size:11px;color:var(--muted);white-space:nowrap;}
+.sb-streak{margin-left:auto;font-size:13px;font-weight:700;flex-shrink:0;}
+.sb-gaps{display:flex;gap:6px;margin-bottom:2px;}
+.sb-gap{flex:1;min-width:0;background:var(--surface3);border:.5px solid var(--line);border-radius:8px;padding:5px 4px;text-align:center;display:flex;flex-direction:column;gap:1px;overflow:hidden;}
+.sb-gap .sg-t{font-size:9.5px;color:var(--muted);}
+.sb-gap .sg-n{font-size:11px;color:var(--text);font-weight:600;white-space:nowrap;}
+.sb-row{display:flex;gap:8px;font-size:12px;padding:5px 1px;border-top:.5px solid var(--line);margin-top:5px;}
+.sb-k{color:var(--faint);min-width:32px;flex-shrink:0;}
+.sb-v{color:var(--text2);flex:1;min-width:0;}
+.sb-upd{font-size:9.5px;color:var(--faint);text-align:right;margin-top:6px;}
