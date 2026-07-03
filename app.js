@@ -23,6 +23,8 @@ function keyDaily(dstr){return dstr;}
 function keyWeekGen(dstr){const d=parseYmd(dstr);return ymd(addDays(d,-((d.getDay()+6)%7)));}   /* 월요일 */
 function keyWowWeek(dstr){const d=parseYmd(dstr);return ymd(addDays(d,-(((d.getDay()-4)+7)%7)));} /* 목요일 */
 function weekGenRange(dstr){const s=parseYmd(keyWeekGen(dstr));return [ymd(s),ymd(addDays(s,6))];}
+function keyMonthGen(dstr){return dstr.slice(0,7);}
+function monthGenRange(dstr){var ym=dstr.slice(0,7);var y=+ym.slice(0,4),mo=+ym.slice(5,7);return [ymd(new Date(y,mo-1,1)),ymd(new Date(y,mo,0))];}
 function wowWeekRange(dstr){const s=parseYmd(keyWowWeek(dstr));return [ymd(s),ymd(addDays(s,6))];}
 function wowNextReset(){const now=new Date();const d=new Date(now);
   for(let i=0;i<8;i++){const c=new Date(d);c.setHours(8,0,0,0);if(c.getDay()===4&&c>now)return c;d.setDate(d.getDate()+1);}
@@ -75,14 +77,14 @@ function defaultData(){
     health:{},
     hubBlocks:[
       {id:"stats",on:true},{id:"timeline",on:true},{id:"remain",on:true},{id:"daily",on:true},
-      {id:"weekGeneral",on:true,collapsed:true},{id:"weekWow",on:true,collapsed:true},{id:"counters",on:true,collapsed:true},{id:"focus",on:true,collapsed:false},{id:"health",on:false},{id:"upcoming",on:false},
+      {id:"weekGeneral",on:true,collapsed:true},{id:"monthGeneral",on:true,collapsed:true},{id:"weekWow",on:true,collapsed:true},{id:"counters",on:true,collapsed:true},{id:"focus",on:true,collapsed:false},{id:"health",on:false},{id:"upcoming",on:false},
     ],
   };
 }
-const CARD_BLOCKS={remain:1,daily:1,weekGeneral:1,weekWow:1,counters:1,focus:1,health:1,upcoming:1,stats:1};
+const CARD_BLOCKS={remain:1,daily:1,weekGeneral:1,monthGeneral:1,weekWow:1,counters:1,focus:1,health:1,upcoming:1,stats:1};
 const WOW_CLASSES={"전사":"#C69B6D","성기사":"#F48CBA","사냥꾼":"#AAD372","도적":"#FFF468","사제":"#F5F5F5","죽음의 기사":"#C41E3A","주술사":"#0070DD","마법사":"#3FC7EB","흑마법사":"#8788EE","수도사":"#00FF98","드루이드":"#FF7C0A","악마사냥꾼":"#A330C9","기원사":"#33937F"};
 function wowClassColor(ch){return (ch&&ch.class&&WOW_CLASSES[ch.class])||"#a8a4ff";}
-const BLOCK_NAMES={stats:"통계 요약",timeline:"이 날 일정 (타임라인)",remain:"오늘 일정",daily:"이 날 체크리스트 (일일)",weekGeneral:"이번 주 · 일반",weekWow:"이번 주 · 와우",counters:"카운터",focus:"Focus List",health:"건강 요약",upcoming:"다가오는 일정 (3일)"};
+const BLOCK_NAMES={stats:"통계 요약",timeline:"이 날 일정 (타임라인)",remain:"오늘 일정",daily:"이 날 체크리스트 (일일)",weekGeneral:"이번 주 · 일반",monthGeneral:"이번 달 · 일반",weekWow:"이번 주 · 와우",counters:"카운터",focus:"Focus List",health:"건강 요약",upcoming:"다가오는 일정 (3일)"};
 
 let DB;
 function load(){}
@@ -100,7 +102,8 @@ function normalizeDB(){ if(!DB)return;
   if(!DB.counters.some(function(c){return c.kind==="happy";}))DB.counters.push({id:"sajung",name:"해소",catId:"happy",period:"daily",kind:"happy",secret:true,fields:[]});
   if(!DB.hubBlocks.some(function(b){return b.id==="remain";})){var di=DB.hubBlocks.findIndex(function(b){return b.id==="daily";});DB.hubBlocks.splice(di>=0?di:DB.hubBlocks.length,0,{id:"remain",on:true});}
   if(!DB.hubBlocks.some(function(b){return b.id==="counters";})){var wi=DB.hubBlocks.findIndex(function(b){return b.id==="weekWow";});DB.hubBlocks.splice(wi>=0?wi+1:DB.hubBlocks.length,0,{id:"counters",on:true});}
-  var cd={weekGeneral:true,weekWow:true,counters:true};
+  if(!DB.hubBlocks.some(function(b){return b.id==="monthGeneral";})){var wgi=DB.hubBlocks.findIndex(function(b){return b.id==="weekGeneral";});DB.hubBlocks.splice(wgi>=0?wgi+1:DB.hubBlocks.length,0,{id:"monthGeneral",on:true,collapsed:true});}
+  var cd={weekGeneral:true,monthGeneral:true,weekWow:true,counters:true};
   DB.hubBlocks.forEach(function(b){ if(b.collapsed===undefined)b.collapsed=!!cd[b.id]; if(b.showDone===undefined)b.showDone=false; });
 }
 function catById(id){return DB.categories.find(c=>c.id===id)||DB.categories[0];}
@@ -137,24 +140,25 @@ function eventsForRange(rs,re){
 function instancesOnDay(dstr){const d=parseYmd(dstr);return eventsForRange(d,d);}
 
 /* ===== 루틴 / 와우 체크 → 캘린더 자동기록 ===== */
-function routineState(r,dstr){const pk=r.cadence==="daily"?keyDaily(dstr):keyWeekGen(dstr);return DB.routineDone[r.id+"@"+pk];}
+function routinePK(r,dstr){return r.cadence==="daily"?keyDaily(dstr):r.cadence==="monthly"?keyMonthGen(dstr):keyWeekGen(dstr);}
+function routineState(r,dstr){const pk=routinePK(r,dstr);return DB.routineDone[r.id+"@"+pk];}
 function routineIsDone(r,dstr){var st=routineState(r,dstr);if(!st)return false;return r.type==="counter"?((st.progress||0)>=(r.target||1)):true;}
-function routineCounter(r,dstr,delta){var pk=r.cadence==="daily"?keyDaily(dstr):keyWeekGen(dstr);var k=r.id+"@"+pk;var cur=(DB.routineDone[k]&&DB.routineDone[k].progress)||0;var v=Math.max(0,Math.min(r.target||1,cur+delta));if(v<=0){delete DB.routineDone[k];}else{DB.routineDone[k]={progress:v};}save();}
+function routineCounter(r,dstr,delta){var pk=routinePK(r,dstr);var k=r.id+"@"+pk;var cur=(DB.routineDone[k]&&DB.routineDone[k].progress)||0;var v=Math.max(0,Math.min(r.target||1,cur+delta));if(v<=0){delete DB.routineDone[k];}else{DB.routineDone[k]={progress:v};}save();}
 function reorderRoutine(id,dir){var arr=DB.routines;var i=arr.findIndex(function(x){return x.id===id;});if(i<0)return;var r=arr[i];var j=i+dir;while(j>=0&&j<arr.length){if(arr[j].cadence===r.cadence&&!arr[j].time)break;j+=dir;}if(j<0||j>=arr.length)return;var t=arr[i];arr[i]=arr[j];arr[j]=t;save();refreshDay();}
 function toggleRoutine(r,dstr){
-  const pk=r.cadence==="daily"?keyDaily(dstr):keyWeekGen(dstr);const k=r.id+"@"+pk;
+  const pk=routinePK(r,dstr);const k=r.id+"@"+pk;
   if(DB.routineDone[k]){delete DB.routineDone[k];}else{DB.routineDone[k]={done:true};}
   save();
 }
 function checkNoteLabel(note){ if(!note)return "완료"; if(note.type==="pass")return "패스"+(note.val?" · "+escapeHtml(note.val):""); return escapeHtml(note.val||"")+" 변경"; }
 function cycleRoutine(r,dstr){
-  var pk=r.cadence==="daily"?keyDaily(dstr):keyWeekGen(dstr);var k=r.id+"@"+pk;var st=DB.routineDone[k];
+  var pk=routinePK(r,dstr);var k=r.id+"@"+pk;var st=DB.routineDone[k];
   if(!st){DB.routineDone[k]={done:true};save();refreshDay();}
   else if(st.done&&!st.note){openCheckNote(r,dstr);}
   else {delete DB.routineDone[k];save();refreshDay();}
 }
 function openCheckNote(r,dstr){
-  var pk=r.cadence==="daily"?keyDaily(dstr):keyWeekGen(dstr);var k=r.id+"@"+pk;
+  var pk=routinePK(r,dstr);var k=r.id+"@"+pk;
   var now=new Date();var defT=r.time||(pad(now.getHours())+":"+pad(now.getMinutes()));
   var cur=(DB.routineDone[k]&&DB.routineDone[k].note)||{type:"time",val:defT};
   var root=document.getElementById("modalRoot");
@@ -215,6 +219,17 @@ function weekTotals(){
     else n=(DB.counterLogs||[]).filter(function(l){return l.counterId===c.id&&l.date>=wr[0]&&l.date<=wr[1];}).length;
     var cat=catById(c.catId);
 return '<span class="wt-chip"><span class="dot" style="background:'+counterColor(c)+'"></span>'+escapeHtml(c.name)+'<b style="color:'+lighten(counterColor(c),45)+'">'+n+'</b></span>';
+  });
+  return out.length?'<div class="wk-totals">'+out.join("")+'</div>':"";
+}
+function monthTotals(){
+  var mr=monthGenRange(selDate);
+  var arr=orderedCounters((DB.counters||[]).filter(function(c){return !(c.secret&&!DB.happyOn);}));
+  var out=arr.map(function(c){var n;
+    if(c.kind==="workout")n=(DB.events||[]).filter(function(e){return e.workout&&e.workout.type===c.workoutType&&e.date>=mr[0]&&e.date<=mr[1];}).length;
+    else if(c.kind==="happy")n=(DB.happyLogs||[]).filter(function(l){return l.date>=mr[0]&&l.date<=mr[1];}).length;
+    else n=(DB.counterLogs||[]).filter(function(l){return l.counterId===c.id&&l.date>=mr[0]&&l.date<=mr[1];}).length;
+    return '<span class="wt-chip"><span class="dot" style="background:'+counterColor(c)+'"></span>'+escapeHtml(c.name)+'<b style="color:'+lighten(counterColor(c),45)+'">'+n+'</b></span>';
   });
   return out.length?'<div class="wk-totals">'+out.join("")+'</div>':"";
 }
@@ -349,7 +364,7 @@ function renderDayDesktop(host){
   host.querySelectorAll("[data-detail]").forEach(function(x){x.onclick=function(){ openDetailDay(selDate); };});
   var _doAuto=!_dayScrollInit;
   buildTimeline(document.getElementById("dpTL"),document.getElementById("dpAllday"),selDate,_doAuto);
-  if(!_doAuto&&_savedTop!=null){var _sc=host.querySelector(".tl-scroll");if(_sc)setTimeout(function(){_sc.scrollTop=_savedTop;},0);}
+  if(!_doAuto&&_savedTop!=null){var _sc=host.querySelector(".tl-scroll");if(_sc)_sc.scrollTop=_savedTop;}
   _dayScrollInit=true;
 }
 function secState(id){var b=(DB.hubBlocks||[]).find(function(x){return x.id===id;});if(!b){b={id:id,on:true};(DB.hubBlocks=DB.hubBlocks||[]).push(b);}return b;}
@@ -368,7 +383,7 @@ function bindSectionHead(el,id,onAdd){
 }
 function blkRemaining(el){
   var b=secState("remain");
-  var insts=instancesOnDay(selDate);var isToday=selDate===dayKeyNow();
+  var insts=instancesOnDay(selDate).filter(function(e){return e.catId!=="ai";});var isToday=selDate===dayKeyNow();
   var allday=insts.filter(function(e){return e.allDay;});
   var timedAll=insts.filter(function(e){return !e.allDay&&e.start;}).slice().sort(function(a,b){return toMin(a.start)-toMin(b.start);});
   var remaining=timedAll;
@@ -384,7 +399,7 @@ function blkRemaining(el){
   el.querySelectorAll("[data-ev]").forEach(function(x){x.onclick=function(){openEventPreview(x.dataset.ev,x);};});
 }
 function renderChkDesktop(host){
-  var allow={remain:1,daily:1,weekGeneral:1,weekWow:1,focus:1,health:1,upcoming:1};
+  var allow={remain:1,daily:1,weekGeneral:1,monthGeneral:1,weekWow:1,focus:1,health:1,upcoming:1};
   var html='<div class="chk-top"><button class="iconbtn" id="chkEdit" title="섹션 편집·순서"><i class="ti ti-adjustments-horizontal"></i></button></div>';
   DB.hubBlocks.forEach(function(b){if(b.on&&allow[b.id])html+='<div id="blk-'+b.id+'" class="hub-card"></div>';});
   host.innerHTML=html;
@@ -459,6 +474,7 @@ function buildMonthGrid(){
       el.style.top=(LT+placed*LH)+"px";el.style.width="calc("+(seg.span/7*100)+"% - 6px)";
       if(rAnchor){el.style.right="calc("+((6-seg.ce)/7*100)+"% + 3px)";}else{el.style.left="calc("+(seg.cs/7*100)+"% + 3px)";}
       el.style.background=hexToRgba(c.color,isBar?0.30:0.22);el.style.color=lighten(c.color,isBar?60:55);
+      el.style.setProperty("--mid",((seg.cs+seg.span/2)/7*100)+"%");el.style.setProperty("--hbg",hexToRgba(c.color,isBar?0.52:0.44));
       if(!isBar){if(seg.ev.allDay){el.innerHTML='<span class="ev-h">종</span>'+escapeHtml(seg.ev.title);}else if(seg.ev.start){el.innerHTML='<span class="ev-h">'+seg.ev.start.slice(0,2)+'</span>'+escapeHtml(seg.ev.title);}else{el.textContent=seg.ev.title;}}else{el.textContent=seg.ev.title;}
       el.onclick=e=>{e.stopPropagation();var mm=masterOf(seg.ev._id);if(mm)openEditor(mm);};
       wk.appendChild(el);
@@ -490,6 +506,7 @@ function renderBlock(id,el){
   else if(id==="timeline")blkTimeline(el);
   else if(id==="daily")blkDaily(el);
   else if(id==="weekGeneral")blkWeekGen(el);
+  else if(id==="monthGeneral")blkMonthGen(el);
   else if(id==="weekWow")blkWeekWow(el);
   else if(id==="counters")blkCounters(el);
   else if(id==="focus")blkFocus(el);
@@ -599,6 +616,19 @@ function blkWeekGen(el){
   var rows=shown.map(function(r){return checklistRow(r,selDate);}).join("");
   el.innerHTML=head+(rows||(rs.length?emptyHtml("모두 완료 · 눈 아이콘으로 보기"):""))+weekTotals();
   bindChecklist(el);bindSectionHead(el,"weekGeneral",function(){openRoutineEditor(null,"weekly");});
+}
+function blkMonthGen(el){
+  var b=secState("monthGeneral");
+  var rs0=DB.routines.filter(function(r){return r.cadence==="monthly";});
+  var untimed=rs0.filter(function(r){return !r.time;});var timedR=rs0.filter(function(r){return r.time;}).sort(function(a,b){return toMin(a.time)-toMin(b.time);});
+  var rs=untimed.concat(timedR);
+  var done=rs.filter(function(r){return routineIsDone(r,selDate);}).length;
+  var head=sectionHead("monthGeneral","Monthly \u00b7 Life",done+"/"+rs.length,{add:true,eye:done>0});
+  if(b.collapsed){el.innerHTML=head;bindSectionHead(el,"monthGeneral",function(){openRoutineEditor(null,"monthly");});return;}
+  var shown=b.showDone?rs:rs.filter(function(r){return !routineIsDone(r,selDate);});
+  var rows=shown.map(function(r){return checklistRow(r,selDate);}).join("");
+  el.innerHTML=head+(rows||(rs.length?emptyHtml("모두 완료 · 눈 아이콘으로 보기"):""))+monthTotals();
+  bindChecklist(el);bindSectionHead(el,"monthGeneral",function(){openRoutineEditor(null,"monthly");});
 }
 function blkWeekWow(el){
   var b=secState("weekWow");var p=wpFor(selDate);
@@ -788,7 +818,7 @@ function openRoutineEditor(r,presetCadence){
   const root=document.getElementById("modalRoot");
   root.innerHTML='<div class="sheet"><div class="sheet-h"><span class="title">'+(editing?"루틴 편집":"루틴 추가")+'</span><button class="x" id="mX">×</button></div>'+
     '<div class="field"><label>제목</label><input type="text" id="rTitle" value="'+escapeHtml(e.title)+'" placeholder="예: 공복 영양제"/></div>'+
-    '<div class="field"><label>주기</label><select id="rCad"><option value="daily"'+(e.cadence==="daily"?" selected":"")+'>매일 · 06:00 리셋</option><option value="weekly"'+(e.cadence==="weekly"?" selected":"")+'>매주 일반 · 월 06:00 리셋</option></select></div>'+
+    '<div class="field"><label>주기</label><select id="rCad"><option value="daily"'+(e.cadence==="daily"?" selected":"")+'>매일 · 06:00 리셋</option><option value="weekly"'+(e.cadence==="weekly"?" selected":"")+'>매주 일반 · 월 06:00 리셋</option><option value="monthly"'+(e.cadence==="monthly"?" selected":"")+'>매월 · 1일 06:00 리셋</option></select></div>'+
     '<div class="field"><label>기본 시각 (선택) — 체크 시 이 시각에 기록</label><input type="time" id="rTime" value="'+(e.time||"")+'"/></div>'+
     '<div class="field"><label>카테고리</label><div class="chips" id="rCats">'+catChips+'</div></div>'+
     '<div class="sheet-actions">'+(editing?'<button class="btn danger" id="rDel">삭제</button>':'')+'<button class="btn gold" id="rSave">저장</button></div></div>';
@@ -1210,7 +1240,7 @@ function renderStatsPage(){
 function renderSettings(){
   const host=document.getElementById("tab-settings");
   const cats=DB.categories.map(c=>'<div class="qrow"><span class="qtitle"><i class="dot" style="background:'+c.color+';margin-right:8px"></i>'+escapeHtml(c.name)+'</span><button class="btn ghost sm" data-editcat="'+c.id+'">수정</button></div>').join("");
-  const routs=DB.routines.map(r=>'<div class="qrow"><span class="qtitle clip">'+escapeHtml(r.title)+' <span class="sub">· '+(r.cadence==="daily"?"매일":"주간")+(r.time?" "+r.time:"")+'</span></span><button class="btn ghost sm" data-editrt="'+r.id+'">수정</button></div>').join("");
+  const routs=DB.routines.map(r=>'<div class="qrow"><span class="qtitle clip">'+escapeHtml(r.title)+' <span class="sub">· '+(r.cadence==="daily"?"매일":r.cadence==="monthly"?"월간":"주간")+(r.time?" "+r.time:"")+'</span></span><button class="btn ghost sm" data-editrt="'+r.id+'">수정</button></div>').join("");
   let wow="";
   DB.wowChars.forEach(ch=>{const qs=DB.wowQuests.filter(q=>q.charId===ch.id);
     wow+='<div class="qrow"><span class="qtitle"><i class="dot" style="background:'+wowClassColor(ch)+';margin-right:8px"></i>'+escapeHtml(ch.name)+' <span class="sub">· 퀘 '+qs.length+'</span></span><span><button class="btn ghost sm" data-editchar="'+ch.id+'">수정</button> <button class="btn ghost sm" data-addq="'+ch.id+'">＋퀘</button> <button class="btn ghost sm" data-delchar="'+ch.id+'">삭제</button></span></div>';
