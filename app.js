@@ -344,7 +344,7 @@ let curTab="home";
 var tabPushed=false;
 let viewMonth=new Date(todayD().getFullYear(),todayD().getMonth(),1);
 let selDate=dayKeyNow();
-var expMonth=ymd(todayD()).slice(0,7);
+var expPeriod="month";var expRef=ymd(todayD());
 var happyMonth=ymd(todayD()).slice(0,7);
 var statPeriod="month";
 var goldPeriod="all";
@@ -411,6 +411,13 @@ function renderChkDesktop(host){
   document.getElementById("chkEdit").onclick=openHubEdit;
   DB.hubBlocks.forEach(function(b){if(b.on&&allow[b.id]){var e=document.getElementById("blk-"+b.id);if(e)renderBlock(b.id,e);}});
 }
+function bindMonthSwipe(el){
+  if(!el)return;var x0=null,y0=null;
+  el.addEventListener("touchstart",function(e){var t=e.touches[0];x0=t.clientX;y0=t.clientY;},{passive:true});
+  el.addEventListener("touchend",function(e){if(x0==null)return;var t=e.changedTouches[0];var dx=t.clientX-x0,dy=t.clientY-y0;x0=null;
+    if(Math.abs(dx)>55&&Math.abs(dx)>Math.abs(dy)*1.3){ if(dx<0){viewMonth.setMonth(viewMonth.getMonth()-1);}else{viewMonth.setMonth(viewMonth.getMonth()+1);} buildMonthGrid(); }
+  },{passive:true});
+}
 function renderHome(){
   const host=document.getElementById("tab-home");
   const legend='<span class="leg-dot'+(catFilter===null?' leg-on':'')+'" title="전체" data-legall><i class="dot leg-all"></i></span>'+DB.categories.filter(function(c){return !c.secret||DB.happyOn;}).map(c=>'<span class="leg-dot'+(catFilter===c.id?' leg-on':'')+'" title="'+escapeHtml(c.name)+'" data-legcat="'+c.id+'"><i class="dot" style="background:'+c.color+'"></i></span>').join("");
@@ -431,6 +438,7 @@ function renderHome(){
   document.querySelectorAll("[data-legcat]").forEach(function(x){x.onclick=function(){catFilter=(catFilter===x.dataset.legcat)?null:x.dataset.legcat;renderHome();};});
   var _la=document.querySelector("[data-legall]");if(_la)_la.onclick=function(){catFilter=null;renderHome();};
   var _bl=host.querySelector(".brandline");if(_bl)addLongPress(_bl,toggleHappy);
+  if(!isDesktop())bindMonthSwipe(document.getElementById("calGrid"));
   refreshDay();
 }
 
@@ -481,7 +489,7 @@ function buildMonthGrid(){
       el.style.background=hexToRgba(c.color,isBar?0.30:0.22);el.style.color=lighten(c.color,isBar?60:55);
       el.style.setProperty("--mid",((seg.cs+seg.span/2)/7*100)+"%");el.style.setProperty("--hbg",hexToRgba(c.color,isBar?0.52:0.44));
       if(!isBar){if(seg.ev.allDay){el.innerHTML='<span class="ev-h">종</span>'+escapeHtml(seg.ev.title);}else if(seg.ev.start){el.innerHTML='<span class="ev-h">'+seg.ev.start.slice(0,2)+'</span>'+escapeHtml(seg.ev.title);}else{el.textContent=seg.ev.title;}}else{el.textContent=seg.ev.title;}
-      el.onclick=e=>{e.stopPropagation();var mm=masterOf(seg.ev._id);if(mm)openEditor(mm);};
+      el.onclick=e=>{e.stopPropagation();var mm=masterOf(seg.ev._id);if(!mm)return;if(isDesktop())openEditor(mm);else openEventPreview(seg.ev._id,e.currentTarget);};
       wk.appendChild(el);
     });
     overflow.forEach((n,c)=>{if(n>0){const more=document.createElement("div");more.className="more";more.style.top=(LT+ML*LH)+"px";more.style.left=(c/7*100)+"%";more.textContent="+"+n;more.onclick=()=>{selDate=ymd(days[c]);refreshDay();};wk.appendChild(more);}});
@@ -496,14 +504,14 @@ function renderHub(){
   const host=document.getElementById("hubCol");if(!host)return;
   const d=parseYmd(selDate);const isToday=selDate===dayKeyNow();
   let html='<div class="hub-head"><span class="d" id="hubDate" style="cursor:pointer">'+(isToday?"오늘 · ":"")+(d.getMonth()+1)+'월 '+d.getDate()+'일 <small>'+DOW_KO[d.getDay()]+'</small></span>'+
-    '<button class="iconbtn" id="hubDetail" title="Daily Detail"><i class="ti ti-list-details"></i></button><button class="iconbtn" id="hubEdit"><i class="ti ti-adjustments-horizontal"></i></button></div>'+
-    '';
-  DB.hubBlocks.forEach(b=>{if(b.on&&b.id!=="remain"&&b.id!=="counters")html+='<div id="blk-'+b.id+'"'+(CARD_BLOCKS[b.id]?' class="hub-card"':"")+'></div>';});
+    '<button class="iconbtn" id="hubEdit"><i class="ti ti-adjustments-horizontal"></i></button></div>'+
+    '<button class="hub-detail-btn" id="hubDetailBtn"><i class="ti ti-list-details"></i> 오늘 시간표 · Daily Detail</button>';
+  DB.hubBlocks.forEach(b=>{if(b.on&&b.id!=="remain"&&b.id!=="counters"&&b.id!=="timeline")html+='<div id="blk-'+b.id+'"'+(CARD_BLOCKS[b.id]?' class="hub-card"':"")+'></div>';});
   host.innerHTML=html;
   document.getElementById("hubEdit").onclick=openHubEdit;
-  var _hd=document.getElementById("hubDetail");if(_hd)_hd.onclick=function(){openDetailDay(selDate);};
+  var _hb=document.getElementById("hubDetailBtn");if(_hb)_hb.onclick=function(){openDetailDay(selDate);};
   var _hdt=document.getElementById("hubDate");if(_hdt)_hdt.onclick=function(){openDetailDay(selDate);};
-  DB.hubBlocks.forEach(b=>{if(!b.on||b.id==="remain"||b.id==="counters")return;const el=document.getElementById("blk-"+b.id);if(el)renderBlock(b.id,el);});
+  DB.hubBlocks.forEach(b=>{if(!b.on||b.id==="remain"||b.id==="counters"||b.id==="timeline")return;const el=document.getElementById("blk-"+b.id);if(el)renderBlock(b.id,el);});
 }
 function renderBlock(id,el){
   if(id==="remain")blkRemaining(el);
@@ -941,10 +949,32 @@ function openFocusEditor(f){
 }
 
 /* ===== 익스펜스 ===== */
+function expInPeriod(dstr){
+  if(expPeriod==="all")return true;
+  if(expPeriod==="day")return dstr===expRef;
+  if(expPeriod==="week"){var r=weekGenRange(expRef);return dstr>=r[0]&&dstr<=r[1];}
+  if(expPeriod==="month")return (dstr||"").slice(0,7)===expRef.slice(0,7);
+  if(expPeriod==="year")return (dstr||"").slice(0,4)===expRef.slice(0,4);
+  return true;
+}
+function expRangeLabel(){
+  if(expPeriod==="all")return "전체";
+  if(expPeriod==="year")return expRef.slice(0,4)+"년";
+  if(expPeriod==="month"){var p=expRef.split("-");return p[0]+". "+p[1];}
+  if(expPeriod==="week"){var r=weekGenRange(expRef);var a=parseYmd(r[0]),b=parseYmd(r[1]);return (a.getMonth()+1)+"/"+a.getDate()+" ~ "+(b.getMonth()+1)+"/"+b.getDate();}
+  var d=parseYmd(expRef);return (d.getMonth()+1)+"/"+d.getDate()+" "+DOW_KO[d.getDay()];
+}
+function expTotalLabel(){return expPeriod==="day"?"이 날 지출":expPeriod==="week"?"이번 주 지출":expPeriod==="month"?"이번 달 지출":expPeriod==="year"?"올해 지출":"전체 지출";}
+function expShift(dir){var d=parseYmd(expRef);
+  if(expPeriod==="day")d=addDays(d,dir);
+  else if(expPeriod==="week")d=addDays(d,dir*7);
+  else if(expPeriod==="month")d.setMonth(d.getMonth()+dir);
+  else if(expPeriod==="year")d.setFullYear(d.getFullYear()+dir);
+  expRef=ymd(d);
+}
 function renderExpensePage(){
   var host=document.getElementById("tab-expense");if(!host)return;
-  var ym=expMonth;var parts=ym.split("-");
-  var list=(DB.expenses||[]).filter(function(e){return (e.date||"").slice(0,7)===ym&&(DB.happyOn||e.source!=="happy");});
+  var list=(DB.expenses||[]).filter(function(e){return expInPeriod(e.date||"")&&(DB.happyOn||e.source!=="happy");});
   list.sort(function(a,b){return b.date.localeCompare(a.date)||String(b.id).localeCompare(String(a.id));});
   var total=list.reduce(function(sum,e){return sum+(Number(e.amount)||0);},0);
   var byCat={};list.forEach(function(e){byCat[e.catId]=(byCat[e.catId]||0)+(Number(e.amount)||0);});
@@ -955,14 +985,18 @@ function renderExpensePage(){
     var items=byDate[d].map(function(e){return '<div class="crow exp-row" data-exp="'+e.id+'" style="cursor:pointer"><span class="ctitle clip">'+escapeHtml(e.item||"(품목)")+(e.vendor?' <small style="color:var(--faint)">'+escapeHtml(e.vendor)+'</small>':'')+'</span><span class="exp-amt">'+won(e.amount)+'</span></div>';}).join("");
     return '<div class="charlabel">'+(dd.getMonth()+1)+'/'+dd.getDate()+' '+DOW_KO[dd.getDay()]+'</div>'+items;
   }).join("");
+  var segs=[["day","일"],["week","주"],["month","월"],["year","연"],["all","올타임"]].map(function(p){return '<button data-ep="'+p[0]+'" class="'+(expPeriod===p[0]?"sel":"")+'">'+p[1]+'</button>';}).join("");
+  var nav=(expPeriod==="all")?'<span class="exp-mtitle">전체</span>':'<button class="nav-btn" id="expPrev">‹</button><span class="exp-mtitle">'+expRangeLabel()+'</span><button class="nav-btn" id="expNext">›</button>';
   host.innerHTML='<div class="page-head"><div class="page-title">익스펜스</div><button class="btn gold sm" id="expAdd">＋ 지출</button></div>'+
-    '<div class="exp-month"><button class="nav-btn" id="expPrev">‹</button><span class="exp-mtitle">'+parts[0]+'. '+parts[1]+'</span><button class="nav-btn" id="expNext">›</button></div>'+
-    '<div class="exp-total"><span>이번 달 지출</span><b>'+won(total)+'</b></div>'+
+    '<div class="seg g" style="margin-bottom:12px">'+segs+'</div>'+
+    '<div class="exp-month">'+nav+'</div>'+
+    '<div class="exp-total"><span>'+expTotalLabel()+'</span><b>'+won(total)+'</b></div>'+
     (catSummary?'<div class="exp-cats">'+catSummary+'</div>':'')+
-    (rowsHtml||emptyHtml("이 달 지출 없음"));
+    (rowsHtml||emptyHtml("이 기간 지출 없음"));
   document.getElementById("expAdd").onclick=function(){openExpenseEditor(null);};
-  document.getElementById("expPrev").onclick=function(){expMonth=shiftMonth(ym,-1);renderExpensePage();};
-  document.getElementById("expNext").onclick=function(){expMonth=shiftMonth(ym,1);renderExpensePage();};
+  host.querySelectorAll("[data-ep]").forEach(function(b){b.onclick=function(){expPeriod=b.dataset.ep;if(expPeriod!=="all")expRef=ymd(todayD());renderExpensePage();};});
+  var pv=document.getElementById("expPrev");if(pv)pv.onclick=function(){expShift(-1);renderExpensePage();};
+  var nx=document.getElementById("expNext");if(nx)nx.onclick=function(){expShift(1);renderExpensePage();};
   host.querySelectorAll("[data-exp]").forEach(function(x){x.onclick=function(){openExpenseEditor((DB.expenses||[]).find(function(e){return e.id===x.dataset.exp;}));};});
 }
 function expItemDatalist(){return '<datalist id="expItemDL">'+(DB.expItems||[]).map(function(it){return '<option value="'+escapeHtml(it.name)+'"></option>';}).join("")+'</datalist>';}
@@ -1006,7 +1040,7 @@ function openExpenseEditor(exp){
       var oid=rows.length>1?uid():undefined;
       rows.forEach(function(r){var rec={id:uid(),date:date,vendor:vendor,item:r.item,amount:r.amount,catId:catId,note:note};if(oid)rec.orderId=oid;DB.expenses.push(rec);});
     }
-    expMonth=(date||"").slice(0,7)||expMonth;
+    expRef=date||expRef;
     save();closeModal();renderExpensePage();toast(editing?"수정됨":"추가됨");
   };
   var del=q("#xDel");if(del)del.onclick=function(){if(confirm("이 지출을 삭제할까요?")){DB.expenses=(DB.expenses||[]).filter(function(x){return x.id!==e.id;});save();closeModal();renderExpensePage();toast("삭제됨");}};
