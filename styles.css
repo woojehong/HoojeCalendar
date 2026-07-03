@@ -418,3 +418,6 @@ textarea{resize:vertical;min-height:60px;}
 .sb-k{color:var(--faint);min-width:32px;flex-shrink:0;}
 .sb-v{color:var(--text2);flex:1;min-width:0;}
 .sb-upd{font-size:9.5px;color:var(--faint);text-align:right;margin-top:6px;}
+
+@keyframes slideML{from{transform:translateX(-26px);opacity:.35}to{transform:translateX(0);opacity:1}}
+@keyframes slideMR{from{transform:translateX(26px);opacity:.35}to{transform:translateX(0);opacity:1}}

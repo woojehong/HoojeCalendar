@@ -350,6 +350,7 @@ var statPeriod="month";
 var goldPeriod="all";
 var catFilter=null;
 var _dayScrollInit=false;
+var _mSlide=0;
 var focusOpen={};
 var followOpen={};
 
@@ -415,7 +416,7 @@ function bindMonthSwipe(el){
   if(!el)return;var x0=null,y0=null;
   el.addEventListener("touchstart",function(e){var t=e.touches[0];x0=t.clientX;y0=t.clientY;},{passive:true});
   el.addEventListener("touchend",function(e){if(x0==null)return;var t=e.changedTouches[0];var dx=t.clientX-x0,dy=t.clientY-y0;x0=null;
-    if(Math.abs(dx)>55&&Math.abs(dx)>Math.abs(dy)*1.3){ if(dx<0){viewMonth.setMonth(viewMonth.getMonth()-1);}else{viewMonth.setMonth(viewMonth.getMonth()+1);} buildMonthGrid(); }
+    if(Math.abs(dx)>55&&Math.abs(dx)>Math.abs(dy)*1.3){ if(dx<0){viewMonth.setMonth(viewMonth.getMonth()-1);_mSlide=-1;}else{viewMonth.setMonth(viewMonth.getMonth()+1);_mSlide=1;} buildMonthGrid(); }
   },{passive:true});
 }
 function renderHome(){
@@ -431,8 +432,8 @@ function renderHome(){
   } else {
     host.innerHTML='<div class="home"><div class="cal-col"><div class="brandline"><svg class="brand-ico" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="9" y="14" width="46" height="42" rx="8" stroke="currentColor" stroke-width="3.2"/><line x1="9" y1="25" x2="55" y2="25" stroke="currentColor" stroke-width="3.2"/><line x1="21" y1="8" x2="21" y2="18" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/><line x1="43" y1="8" x2="43" y2="18" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/><path fill-rule="evenodd" fill="currentColor" d="M19,41 a11,11 0 1,0 22,0 a11,11 0 1,0 -22,0 z M26,37.5 a10,10 0 1,0 20,0 a10,10 0 1,0 -20,0 z"/><path fill="currentColor" d="M41 32 L42.4 35.6 L46 37 L42.4 38.4 L41 42 L39.6 38.4 L36 37 L39.6 35.6 Z"/></svg>Hooje Calendar</div>'+caltop+mhead+dow+'<div class="grid" id="calGrid"></div></div><div class="hub-div"></div><div class="hub-col" id="hubCol"></div></div>';
   }
-  document.getElementById("prevM").onclick=()=>{viewMonth.setMonth(viewMonth.getMonth()-1);buildMonthGrid();};
-  document.getElementById("nextM").onclick=()=>{viewMonth.setMonth(viewMonth.getMonth()+1);buildMonthGrid();};
+  document.getElementById("prevM").onclick=()=>{viewMonth.setMonth(viewMonth.getMonth()-1);_mSlide=-1;buildMonthGrid();};
+  document.getElementById("nextM").onclick=()=>{viewMonth.setMonth(viewMonth.getMonth()+1);_mSlide=1;buildMonthGrid();};
   document.getElementById("todayM").onclick=()=>{viewMonth=new Date(todayD().getFullYear(),todayD().getMonth(),1);selDate=dayKeyNow();refreshDay();};
   document.querySelectorAll(".cal-counters [data-cadd]").forEach(function(x){x.onclick=function(){var c=counterById(x.dataset.cadd);if(!c)return;if(c.kind==="workout")openWorkoutLog(c.id);else if(c.kind==="happy")openHappyLog(null);else openCounterLog(c.id);};});
   document.querySelectorAll("[data-legcat]").forEach(function(x){x.onclick=function(){catFilter=(catFilter===x.dataset.legcat)?null:x.dataset.legcat;renderHome();};});
@@ -497,6 +498,7 @@ function buildMonthGrid(){
     wk.style.height=Math.max(66,LT+Math.max(1,lc)*LH+6)+"px";
     grid.appendChild(wk);
   });
+  if(_mSlide){grid.style.animation="none";void grid.offsetWidth;grid.style.animation=(_mSlide<0?"slideML":"slideMR")+" .22s ease";_mSlide=0;}
 }
 
 /* ===== 허브 ===== */
