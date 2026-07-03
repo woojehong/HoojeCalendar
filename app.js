@@ -331,6 +331,7 @@ var happyMonth=ymd(todayD()).slice(0,7);
 var statPeriod="month";
 var goldPeriod="all";
 var catFilter=null;
+var _dayScrollInit=false;
 
 /* ===== 홈 (달력 + 허브) ===== */
 function isDesktop(){ return window.matchMedia("(min-width:900px)").matches; }
@@ -343,9 +344,13 @@ function refreshDay(){
 }
 function renderDayDesktop(host){
   var d=parseYmd(selDate), isToday=selDate===dayKeyNow();
+  var _prevSc=host.querySelector(".tl-scroll");var _savedTop=_prevSc?_prevSc.scrollTop:null;
   host.innerHTML='<div class="sec" style="margin-top:6px"><span style="cursor:pointer" data-detail>'+(isToday?"오늘 · ":"")+(d.getMonth()+1)+'월 '+d.getDate()+'일 '+DOW_KO[d.getDay()]+'요일</span><span class="sec-tools"><button class="btn sm" data-detail><i class="ti ti-list-details"></i> Daily Detail</button></span></div><div id="dpAllday"></div><div class="tl-scroll"><div class="timeline" id="dpTL"></div></div>';
   host.querySelectorAll("[data-detail]").forEach(function(x){x.onclick=function(){ openDetailDay(selDate); };});
-  buildTimeline(document.getElementById("dpTL"),document.getElementById("dpAllday"),selDate,true);
+  var _doAuto=!_dayScrollInit;
+  buildTimeline(document.getElementById("dpTL"),document.getElementById("dpAllday"),selDate,_doAuto);
+  if(!_doAuto&&_savedTop!=null){var _sc=host.querySelector(".tl-scroll");if(_sc)setTimeout(function(){_sc.scrollTop=_savedTop;},0);}
+  _dayScrollInit=true;
 }
 function secState(id){var b=(DB.hubBlocks||[]).find(function(x){return x.id===id;});if(!b){b={id:id,on:true};(DB.hubBlocks=DB.hubBlocks||[]).push(b);}return b;}
 function sectionHead(id,title,badge,opts){
@@ -379,7 +384,7 @@ function blkRemaining(el){
   el.querySelectorAll("[data-ev]").forEach(function(x){x.onclick=function(){openEventPreview(x.dataset.ev,x);};});
 }
 function renderChkDesktop(host){
-  var allow={remain:1,daily:1,weekGeneral:1,weekWow:1,counters:1,focus:1,health:1,upcoming:1};
+  var allow={remain:1,daily:1,weekGeneral:1,weekWow:1,focus:1,health:1,upcoming:1};
   var html='<div class="chk-top"><button class="iconbtn" id="chkEdit" title="섹션 편집·순서"><i class="ti ti-adjustments-horizontal"></i></button></div>';
   DB.hubBlocks.forEach(function(b){if(b.on&&allow[b.id])html+='<div id="blk-'+b.id+'" class="hub-card"></div>';});
   host.innerHTML=html;
@@ -389,16 +394,20 @@ function renderChkDesktop(host){
 function renderHome(){
   const host=document.getElementById("tab-home");
   const legend='<span class="leg-dot'+(catFilter===null?' leg-on':'')+'" title="전체" data-legall><i class="dot leg-all"></i></span>'+DB.categories.filter(function(c){return !c.secret||DB.happyOn;}).map(c=>'<span class="leg-dot'+(catFilter===c.id?' leg-on':'')+'" title="'+escapeHtml(c.name)+'" data-legcat="'+c.id+'"><i class="dot" style="background:'+c.color+'"></i></span>').join("");
+  const _dc=orderedCounters((DB.counters||[]).filter(function(c){return !c.secret||DB.happyOn;}));
+  const ccHtml='<div class="cal-counters">'+_dc.map(function(c){var col=counterColor(c);return '<button class="cc-chip" data-cadd="'+c.id+'" title="'+escapeHtml(c.name)+'" style="border-color:'+hexToRgba(col,0.5)+'"><span class="cc-nm">'+escapeHtml(c.name)+'</span><span class="cc-p" style="color:'+col+'">＋</span></button>';}).join("")+'</div>';
+  const caltop='<div class="cal-top"><div class="legend">'+legend+'</div>'+ccHtml+'</div>';
   const mhead='<div class="mhead"><div><span class="mtitle" id="mTitle"></span><span class="myear" id="mYear"></span></div><div class="nav"><button id="prevM" aria-label="이전 달">‹</button><button class="today-btn" id="todayM">Today</button><button id="nextM" aria-label="다음 달">›</button></div></div>';
   const dow='<div class="dow"><div style="color:var(--sat)">일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div style="color:var(--sun)">토</div></div>';
   if(isDesktop()){
-    host.innerHTML='<div class="home"><div class="cal-col"><div class="legend">'+legend+'</div>'+mhead+dow+'<div class="grid" id="calGrid"></div><div style="height:0.5px;background:var(--line);margin:14px 0"></div><div id="dayPanel"></div></div><div class="hub-col" id="hubCol"></div></div>';
+    host.innerHTML='<div class="home"><div class="cal-col">'+caltop+mhead+dow+'<div class="grid" id="calGrid"></div><div style="height:0.5px;background:var(--line);margin:14px 0"></div><div id="dayPanel"></div></div><div class="hub-col" id="hubCol"></div></div>';
   } else {
-    host.innerHTML='<div class="home"><div class="cal-col"><div class="brandline"><svg class="brand-ico" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="9" y="14" width="46" height="42" rx="8" stroke="currentColor" stroke-width="3.2"/><line x1="9" y1="25" x2="55" y2="25" stroke="currentColor" stroke-width="3.2"/><line x1="21" y1="8" x2="21" y2="18" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/><line x1="43" y1="8" x2="43" y2="18" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/><path fill-rule="evenodd" fill="currentColor" d="M19,41 a11,11 0 1,0 22,0 a11,11 0 1,0 -22,0 z M26,37.5 a10,10 0 1,0 20,0 a10,10 0 1,0 -20,0 z"/><path fill="currentColor" d="M41 32 L42.4 35.6 L46 37 L42.4 38.4 L41 42 L39.6 38.4 L36 37 L39.6 35.6 Z"/></svg>Hooje Calendar</div><div class="legend">'+legend+'</div>'+mhead+dow+'<div class="grid" id="calGrid"></div></div><div class="hub-div"></div><div class="hub-col" id="hubCol"></div></div>';
+    host.innerHTML='<div class="home"><div class="cal-col"><div class="brandline"><svg class="brand-ico" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="9" y="14" width="46" height="42" rx="8" stroke="currentColor" stroke-width="3.2"/><line x1="9" y1="25" x2="55" y2="25" stroke="currentColor" stroke-width="3.2"/><line x1="21" y1="8" x2="21" y2="18" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/><line x1="43" y1="8" x2="43" y2="18" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/><path fill-rule="evenodd" fill="currentColor" d="M19,41 a11,11 0 1,0 22,0 a11,11 0 1,0 -22,0 z M26,37.5 a10,10 0 1,0 20,0 a10,10 0 1,0 -20,0 z"/><path fill="currentColor" d="M41 32 L42.4 35.6 L46 37 L42.4 38.4 L41 42 L39.6 38.4 L36 37 L39.6 35.6 Z"/></svg>Hooje Calendar</div>'+caltop+mhead+dow+'<div class="grid" id="calGrid"></div></div><div class="hub-div"></div><div class="hub-col" id="hubCol"></div></div>';
   }
   document.getElementById("prevM").onclick=()=>{viewMonth.setMonth(viewMonth.getMonth()-1);buildMonthGrid();};
   document.getElementById("nextM").onclick=()=>{viewMonth.setMonth(viewMonth.getMonth()+1);buildMonthGrid();};
   document.getElementById("todayM").onclick=()=>{viewMonth=new Date(todayD().getFullYear(),todayD().getMonth(),1);selDate=dayKeyNow();refreshDay();};
+  document.querySelectorAll(".cal-counters [data-cadd]").forEach(function(x){x.onclick=function(){var c=counterById(x.dataset.cadd);if(!c)return;if(c.kind==="workout")openWorkoutLog(c.id);else if(c.kind==="happy")openHappyLog(null);else openCounterLog(c.id);};});
   document.querySelectorAll("[data-legcat]").forEach(function(x){x.onclick=function(){catFilter=(catFilter===x.dataset.legcat)?null:x.dataset.legcat;renderHome();};});
   var _la=document.querySelector("[data-legall]");if(_la)_la.onclick=function(){catFilter=null;renderHome();};
   var _bl=host.querySelector(".brandline");if(_bl)addLongPress(_bl,toggleHappy);
@@ -468,12 +477,12 @@ function renderHub(){
   let html='<div class="hub-head"><span class="d" id="hubDate" style="cursor:pointer">'+(isToday?"오늘 · ":"")+(d.getMonth()+1)+'월 '+d.getDate()+'일 <small>'+DOW_KO[d.getDay()]+'</small></span>'+
     '<button class="iconbtn" id="hubDetail" title="Daily Detail"><i class="ti ti-list-details"></i></button><button class="iconbtn" id="hubEdit"><i class="ti ti-adjustments-horizontal"></i></button></div>'+
     '';
-  DB.hubBlocks.forEach(b=>{if(b.on&&b.id!=="remain")html+='<div id="blk-'+b.id+'"'+(CARD_BLOCKS[b.id]?' class="hub-card"':"")+'></div>';});
+  DB.hubBlocks.forEach(b=>{if(b.on&&b.id!=="remain"&&b.id!=="counters")html+='<div id="blk-'+b.id+'"'+(CARD_BLOCKS[b.id]?' class="hub-card"':"")+'></div>';});
   host.innerHTML=html;
   document.getElementById("hubEdit").onclick=openHubEdit;
   var _hd=document.getElementById("hubDetail");if(_hd)_hd.onclick=function(){openDetailDay(selDate);};
   var _hdt=document.getElementById("hubDate");if(_hdt)_hdt.onclick=function(){openDetailDay(selDate);};
-  DB.hubBlocks.forEach(b=>{if(!b.on||b.id==="remain")return;const el=document.getElementById("blk-"+b.id);if(el)renderBlock(b.id,el);});
+  DB.hubBlocks.forEach(b=>{if(!b.on||b.id==="remain"||b.id==="counters")return;const el=document.getElementById("blk-"+b.id);if(el)renderBlock(b.id,el);});
 }
 function renderBlock(id,el){
   if(id==="remain")blkRemaining(el);
@@ -811,7 +820,7 @@ function closeModal(){const r=document.getElementById("modalRoot");r.hidden=true
 /* ===== 허브 편집 ===== */
 function openHubEdit(){
   const root=document.getElementById("modalRoot");
-  const items=DB.hubBlocks.map((b,idx)=>'<div class="he-item '+(b.on?"":"off")+'">'+
+  const items=DB.hubBlocks.map((b,idx)=>b.id==="counters"?"":'<div class="he-item '+(b.on?"":"off")+'">'+
     '<div class="he-move"><button data-up="'+idx+'">▲</button><button data-down="'+idx+'">▼</button></div>'+
     '<span class="lbl">'+BLOCK_NAMES[b.id]+'</span>'+
     '<div class="sw '+(b.on?"on":"")+'" data-tg="'+idx+'"><i></i></div></div>').join("");

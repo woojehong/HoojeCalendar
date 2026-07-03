@@ -82,6 +82,12 @@ button{font-family:inherit;cursor:pointer;}
 .dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0;}
 
 .legend{display:flex;flex-wrap:wrap;gap:11px;font-size:11px;color:var(--muted);margin-bottom:12px;}
+.cal-top{display:flex;align-items:center;justify-content:space-between;gap:10px 14px;margin-bottom:12px;flex-wrap:wrap;}
+.cal-top .legend{margin-bottom:0;}
+.cal-counters{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;margin-left:auto;}
+.cc-chip{display:inline-flex;align-items:center;gap:5px;background:var(--surface3);border:1px solid var(--line);border-radius:8px;padding:3px 6px 3px 8px;font-size:11px;color:var(--muted);cursor:pointer;line-height:1;white-space:nowrap;}
+.cc-chip:hover{background:var(--surface4);color:var(--text);}
+.cc-p{font-size:14px;font-weight:700;line-height:1;}
 .legend span{display:inline-flex;align-items:center;gap:5px;}
 
 /* ===== 월간 캘린더 ===== */
