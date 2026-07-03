@@ -550,7 +550,7 @@ function boardHTML(s){
     var body=(lg.confirmed&&lg.scoreText)?((lg.opp?"vs "+escapeHtml(lg.opp)+(lg.home?"(홈)":"(원정)")+" ":"")+escapeHtml(lg.scoreText)+(lg.result?' <b style="color:'+rcol+'">'+escapeHtml(lg.result)+'</b>':"")):('<b style="color:'+rcol+'">'+escapeHtml(lg.result||"")+'</b>');
     last='<div class="sb-row"><span class="sb-k">최근</span><span class="sb-v">'+body+'</span></div>';}
   var next="";
-  if(s.nextGame){var ng=s.nextGame;next='<div class="sb-row"><span class="sb-k">다음</span><span class="sb-v">'+escapeHtml(ng.date||"")+(ng.dow?"("+escapeHtml(ng.dow)+")":"")+" "+escapeHtml(ng.time||"")+" · vs "+escapeHtml(ng.opp||"")+(ng.home?"(홈)":"(원정)")+(ng.venue?" · "+escapeHtml(ng.venue):"")+'</span></div>';}
+  if(s.nextGame){var ng=s.nextGame;var _td=dayKeyNow().slice(5).replace("-",".");var _isT=(ng.date===_td);next='<div class="sb-row"><span class="sb-k">다음</span><span class="sb-v">'+(_isT?'<b style="color:var(--gold)">오늘 </b>':"")+escapeHtml(ng.date||"")+(ng.dow?"("+escapeHtml(ng.dow)+")":"")+" "+escapeHtml(ng.time||"")+" · vs "+escapeHtml(ng.opp||"")+(ng.home?"(홈)":"(원정)")+(ng.venue?" · "+escapeHtml(ng.venue):"")+'</span></div>';}
   function gapChip(label,team,gb){return '<span class="sb-gap"><span class="sg-t clip">'+label+' '+escapeHtml(team||"")+'</span><span class="sg-n">'+fmtGb(gb)+'</span></span>';}
   var chips="";
   if(s.rank>1)chips+=gapChip("1위",s.topTeam,s.gbTop);
@@ -1435,7 +1435,7 @@ function showApp(){
 function loginErr(m){ var n=document.querySelector(".login-note"); if(n){ n.textContent=m; n.style.color="#e2554e"; } }
 function boot(){
   firebase.initializeApp(window.FIREBASE_CONFIG);
-  console.log("HOOJE build: gold-ui-v7");
+  console.log("HOOJE build: gold-ui-v8");
   FB.auth=firebase.auth(); FB.db=firebase.firestore();
   try{ FB.auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL); }catch(e){}
   var lb=document.getElementById("loginBtn"), pinEl=document.getElementById("loginPin");
