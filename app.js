@@ -536,9 +536,9 @@ function boardHTML(s){
   if(!s)return emptyHtml("데이터 수집 대기 중");
   var scol=/승$/.test(s.streak||"")?"var(--green)":(/패$/.test(s.streak||"")?"#f0736f":"var(--muted)");
   var last="";
-  if(s.lastGame){var lg=s.lastGame;var rcol=lg.result==="승"?"var(--green)":(lg.result==="패"?"#f0736f":"var(--muted)");
-    var sc=(lg.confirmed&&lg.scoreText)?escapeHtml(lg.scoreText):"스코어 확인 중";
-    last='<div class="sb-row"><span class="sb-k">최근</span><span class="sb-v">'+(lg.opp?"vs "+escapeHtml(lg.opp)+(lg.home?"(홈)":"(원정)")+" ":"")+sc+(lg.result?' <b style="color:'+rcol+'">'+escapeHtml(lg.result)+'</b>':"")+'</span></div>';}
+  if(s.lastGame&&(s.lastGame.result||s.lastGame.scoreText)){var lg=s.lastGame;var rcol=lg.result==="승"?"var(--green)":(lg.result==="패"?"#f0736f":"var(--muted)");
+    var body=(lg.confirmed&&lg.scoreText)?((lg.opp?"vs "+escapeHtml(lg.opp)+(lg.home?"(홈)":"(원정)")+" ":"")+escapeHtml(lg.scoreText)+(lg.result?' <b style="color:'+rcol+'">'+escapeHtml(lg.result)+'</b>':"")):('<b style="color:'+rcol+'">'+escapeHtml(lg.result||"")+'</b>');
+    last='<div class="sb-row"><span class="sb-k">최근</span><span class="sb-v">'+body+'</span></div>';}
   var next="";
   if(s.nextGame){var ng=s.nextGame;next='<div class="sb-row"><span class="sb-k">다음</span><span class="sb-v">'+escapeHtml(ng.date||"")+(ng.dow?"("+escapeHtml(ng.dow)+")":"")+" "+escapeHtml(ng.time||"")+" · vs "+escapeHtml(ng.opp||"")+(ng.home?"(홈)":"(원정)")+(ng.venue?" · "+escapeHtml(ng.venue):"")+'</span></div>';}
   function gapChip(label,team,gb){return '<span class="sb-gap"><span class="sg-t clip">'+label+' '+escapeHtml(team||"")+'</span><span class="sg-n">'+fmtGb(gb)+'</span></span>';}
