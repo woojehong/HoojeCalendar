@@ -445,11 +445,13 @@ function buildMonthGrid(){
       for(let c=seg.cs;c<=seg.ce;c++)lanes[placed][c]=true;
       if(placed>=ML){for(let c=seg.cs;c<=seg.ce;c++)overflow[c]++;return;}
       const c=catById(seg.ev.catId),isBar=seg.span>1;
-      const el=document.createElement("div");el.className="item clip";
-      el.style.top=(LT+placed*LH)+"px";el.style.left="calc("+(seg.cs/7*100)+"% + 3px)";el.style.width="calc("+(seg.span/7*100)+"% - 6px)";
+      var rAnchor=seg.cs>=4;
+      const el=document.createElement("div");el.className="item clip "+(rAnchor?"ra":"la");
+      el.style.top=(LT+placed*LH)+"px";el.style.width="calc("+(seg.span/7*100)+"% - 6px)";
+      if(rAnchor){el.style.right="calc("+((6-seg.ce)/7*100)+"% + 3px)";}else{el.style.left="calc("+(seg.cs/7*100)+"% + 3px)";}
       el.style.background=hexToRgba(c.color,isBar?0.30:0.22);el.style.color=lighten(c.color,isBar?60:55);
       if(!isBar){if(seg.ev.allDay){el.innerHTML='<span class="ev-h">종</span>'+escapeHtml(seg.ev.title);}else if(seg.ev.start){el.innerHTML='<span class="ev-h">'+seg.ev.start.slice(0,2)+'</span>'+escapeHtml(seg.ev.title);}else{el.textContent=seg.ev.title;}}else{el.textContent=seg.ev.title;}
-      el.onclick=e=>{e.stopPropagation();openEventPreview(seg.ev._id,e.currentTarget);};
+      el.onclick=e=>{e.stopPropagation();var mm=masterOf(seg.ev._id);if(mm)openEditor(mm);};
       wk.appendChild(el);
     });
     overflow.forEach((n,c)=>{if(n>0){const more=document.createElement("div");more.className="more";more.style.top=(LT+ML*LH)+"px";more.style.left=(c/7*100)+"%";more.textContent="+"+n;more.onclick=()=>{selDate=ymd(days[c]);refreshDay();};wk.appendChild(more);}});
