@@ -352,7 +352,8 @@ var catFilter=null;
 var _dayScrollInit=false;
 var _mSlide=0;
 var focusOpen={};
-var followOpen={};
+var followOpen={};try{followOpen=JSON.parse((typeof localStorage!=="undefined"&&localStorage.getItem("hooje_followOpen"))||"{}")||{};}catch(e){followOpen={};}
+function saveFollowOpen(){try{if(typeof localStorage!=="undefined")localStorage.setItem("hooje_followOpen",JSON.stringify(followOpen));}catch(e){}}
 
 /* ===== 홈 (달력 + 허브) ===== */
 function isDesktop(){ return window.matchMedia("(min-width:900px)").matches; }
@@ -574,12 +575,12 @@ function blkFollow(el){
     var stat="",inner="",ico="";
     if(it.kind==="kbo"){var s=DB.sportsBoard;if(s)stat=s.rank+"위 · "+escapeHtml(s.streak||"");inner=boardHTML(s);ico='<span class="follow-ico"><i class="ti ti-ball-baseball"></i></span>';}
     else{inner=escapeHtml(it.detail||"").replace(/\n/g,"<br>");}
-    var op=!!followOpen[it.id];
+    var op=followOpen[it.id]!==false;
     return '<div class="focus-item"><div class="follow-head" data-foltog="'+it.id+'">'+ico+'<span class="focus-title clip">'+escapeHtml(it.title)+'</span><span class="follow-stat">'+stat+'</span><i class="ti ti-chevron-down focus-chev'+(op?" open":"")+'"></i></div><div class="focus-body" data-folbody="'+it.id+'"'+(op?"":" hidden")+'>'+inner+'</div></div>';
   }).join("");
   el.innerHTML=head+rows;
   bindSectionHead(el,"follow");
-  el.querySelectorAll("[data-foltog]").forEach(function(x){x.onclick=function(){var id=x.dataset.foltog;followOpen[id]=!followOpen[id];var body=el.querySelector('[data-folbody="'+id+'"]');if(body)body.hidden=!followOpen[id];var ch=x.querySelector(".focus-chev");if(ch)ch.classList.toggle("open",followOpen[id]);};});
+  el.querySelectorAll("[data-foltog]").forEach(function(x){x.onclick=function(){var id=x.dataset.foltog;var open=!(followOpen[id]!==false);followOpen[id]=open;saveFollowOpen();var body=el.querySelector('[data-folbody="'+id+'"]');if(body)body.hidden=!open;var ch=x.querySelector(".focus-chev");if(ch)ch.classList.toggle("open",open);};});
 }
 function checklistRow(r,dstr){
   const c=catById(r.catId);const st=routineState(r,dstr);
