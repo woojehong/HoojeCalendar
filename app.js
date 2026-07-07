@@ -169,13 +169,14 @@ function openCheckNote(r,dstr){
     '<div class="field"><label>종류</label><select id="cnType"><option value="time"'+(cur.type==="time"?" selected":"")+'>시간 변경</option><option value="pass"'+(cur.type==="pass"?" selected":"")+'>패스 (못함)</option></select></div>'+
     '<div class="field" id="cnTimeW"><label>실제 시각</label><input type="time" id="cnTime" value="'+(cur.type==="time"?(cur.val||defT):defT)+'"/></div>'+
     '<div class="field" id="cnPassW" style="display:none"><label>사유</label><input type="text" id="cnPass" value="'+(cur.type==="pass"?escapeHtml(cur.val||""):"")+'" placeholder="예: 영양제 떨어짐"/></div>'+
-    '<div class="sheet-actions"><button class="btn ghost" id="cnPlain">일반 완료로</button><button class="btn gold" id="cnSave">저장</button></div></div>';
+    '<div class="sheet-actions"><button class="btn danger" id="cnDel">체크 해제</button><button class="btn ghost" id="cnPlain">일반 완료로</button><button class="btn gold" id="cnSave">저장</button></div></div>';
   root.hidden=false;root.onclick=function(x){if(x.target===root)closeModal();};
   var q=function(sel){return root.querySelector(sel);};q("#mX").onclick=closeModal;
   function ap(){var t=q("#cnType").value;q("#cnTimeW").style.display=t==="time"?"":"none";q("#cnPassW").style.display=t==="pass"?"":"none";}
   q("#cnType").onchange=ap;ap();
   q("#cnSave").onclick=function(){var t=q("#cnType").value;var val=t==="time"?q("#cnTime").value:q("#cnPass").value.trim();DB.routineDone[k]={done:true,note:{type:t,val:val}};save();closeModal();refreshDay();};
   q("#cnPlain").onclick=function(){DB.routineDone[k]={done:true};save();closeModal();refreshDay();};
+  var _cd=q("#cnDel");if(_cd)_cd.onclick=function(){delete DB.routineDone[k];save();closeModal();refreshDay();toast("체크 해제됨");};
 }
 function wpFor(dstr){const k=keyWowWeek(dstr);if(!DB.wowProgress[k])DB.wowProgress[k]={};return DB.wowProgress[k];}
 function toggleWowCheck(q,dstr){
