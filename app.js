@@ -151,7 +151,7 @@ function openCheckNote(r,dstr){
     '<div class="field" id="cnPassW" style="display:none"><label>사유</label><input type="text" id="cnPass" value="'+(cur.type==="pass"?escapeHtml(cur.val||""):"")+'" placeholder="예: 영양제 떨어짐"/></div>'+
     '<div class="sheet-actions"><button class="btn danger" id="cnDel">체크 해제</button><button class="btn ghost" id="cnPlain">일반 완료로</button><button class="btn gold" id="cnSave">저장</button></div></div>';
   showModal(root);root.onclick=function(x){if(x.target===root)closeModal();};
-  var q=function(sel){return root.querySelector(sel);};q("#mX").onclick=closeModal;
+  var q=function(sel){return root.querySelector(sel);};q("#mX").onclick=function(){closeModal();};
   function ap(){var t=q("#cnType").value;q("#cnTimeW").style.display=t==="time"?"":"none";q("#cnPassW").style.display=t==="pass"?"":"none";}
   q("#cnType").onchange=ap;ap();
   q("#cnSave").onclick=function(){var t=q("#cnType").value;var val=t==="time"?q("#cnTime").value:q("#cnPass").value.trim();DB.routineDone[k]={done:true,note:{type:t,val:val}};save();closeModal();refreshDay();};
@@ -254,7 +254,7 @@ function openCounterLog(cid,logId){
     c.fields.map(function(f){return counterFieldHtml(f,e);}).join("")+
     '<div class="sheet-actions">'+(existing?'<button class="btn danger" id="clDel">삭제</button>':'')+'<button class="btn gold" id="clSave">'+(existing?"저장":"기록")+'</button></div></div>';
   showModal(root);root.onclick=function(ev){if(ev.target===root)closeModal();};
-  var q=function(sel){return root.querySelector(sel);};q("#mX").onclick=closeModal;
+  var q=function(sel){return root.querySelector(sel);};q("#mX").onclick=function(){closeModal();};
   root.querySelectorAll("[data-fb]").forEach(function(sw){sw.onclick=function(){sw.classList.toggle("on");};});
   q("#clSave").onclick=function(){
     var rec={id:e.id,counterId:cid,date:q("#clDate").value,time:q("#clTime").value||defTime,values:{}};
@@ -279,7 +279,7 @@ function openCounterDay(cid){
   root.innerHTML='<div class="sheet"><div class="sheet-h"><span class="title"><i class="dot" style="background:'+cat.color+';margin-right:7px"></i>'+escapeHtml(c.name)+' · '+(d.getMonth()+1)+'/'+d.getDate()+'</span><button class="x" id="mX"><i class="ti ti-x"></i></button></div>'+
     rows+'<div class="sheet-actions"><button class="btn gold" id="clAdd"><i class="ti ti-plus"></i> 기록 추가</button></div></div>';
   showModal(root);root.onclick=function(ev){if(ev.target===root)closeModal();};
-  var q=function(sel){return root.querySelector(sel);};q("#mX").onclick=closeModal;
+  var q=function(sel){return root.querySelector(sel);};q("#mX").onclick=function(){closeModal();};
   q("#clAdd").onclick=function(){openCounterLog(cid);};
   root.querySelectorAll("[data-edit]").forEach(function(x){x.onclick=function(){openCounterLog(cid,x.dataset.edit);};});
 }
@@ -297,7 +297,7 @@ function openWorkoutLog(cid,eventId){
     '<div class="field"><label>시간 (분)</label><input type="number" inputmode="numeric" id="wMins" value="'+e.mins+'" placeholder="예: 40"/></div>'+
     '<div class="sheet-actions">'+(ev?'<button class="btn danger" id="wDel">삭제</button>':'')+'<button class="btn gold" id="wSave">'+(ev?"저장":"기록")+'</button></div></div>';
   showModal(root);root.onclick=function(x){if(x.target===root)closeModal();};
-  var q=function(sel){return root.querySelector(sel);};q("#mX").onclick=closeModal;
+  var q=function(sel){return root.querySelector(sel);};q("#mX").onclick=function(){closeModal();};
   q("#wSave").onclick=function(){
     var mins=Number(q("#wMins").value)||0;var start=q("#wTime").value||defTime;var part=hasPart?q("#wPart").value.trim():"";
     var rec={id:ev?ev.id:uid(),catId:c.catId,title:c.name+(part?" · "+part:""),date:q("#wDate").value,allDay:false,start:start,end:addMin(start,mins||0),imp:1,repeat:"none",workout:{type:c.workoutType,part:part,mins:mins}};
@@ -317,7 +317,7 @@ function openWorkoutList(cid){
   root.innerHTML='<div class="sheet"><div class="sheet-h"><span class="title"><i class="dot" style="background:'+cat.color+';margin-right:7px"></i>'+escapeHtml(c.name)+' · 이번 주 '+evs.length+'회</span><button class="x" id="mX"><i class="ti ti-x"></i></button></div>'+
     rows+'<div class="sheet-actions"><button class="btn gold" id="wAdd"><i class="ti ti-plus"></i> 기록 추가</button></div></div>';
   showModal(root);root.onclick=function(x){if(x.target===root)closeModal();};
-  var q=function(sel){return root.querySelector(sel);};q("#mX").onclick=closeModal;
+  var q=function(sel){return root.querySelector(sel);};q("#mX").onclick=function(){closeModal();};
   q("#wAdd").onclick=function(){openWorkoutLog(cid);};
   root.querySelectorAll("[data-edit]").forEach(function(x){x.onclick=function(){openWorkoutLog(cid,x.dataset.edit);};});
 }
@@ -434,7 +434,7 @@ function buildMonthGrid(){
   const first=new Date(y,m,1);const gridStart=addDays(first,-first.getDay());
   const weeks=[];
   for(let w=0;w<6;w++){const days=[];for(let i=0;i<7;i++)days.push(addDays(gridStart,w*7+i));weeks.push(days);if(days[6].getMonth()!==m&&w>=4)break;}
-  const gridEnd=weeks[weeks.length-1][6];const insts=eventsForRange(gridStart,gridEnd);
+  const gridEnd=weeks[weeks.length-1][6];const insts=eventsForRange(gridStart,gridEnd).filter(function(e){return e.catId!=="ai";});
   const LT=26,LH=18,ML=3;
   const grid=document.getElementById("calGrid");grid.innerHTML="";
   weeks.forEach(days=>{
@@ -472,7 +472,7 @@ function buildMonthGrid(){
       el.style.top=(LT+placed*LH)+"px";el.style.width="calc("+(seg.span/7*100)+"% - 6px)";
       if(rAnchor){el.style.right="calc("+((6-seg.ce)/7*100)+"% + 3px)";}else{el.style.left="calc("+(seg.cs/7*100)+"% + 3px)";}
       if(isBar){el.style.background=hexToRgba(c.color,0.30);el.style.color=lighten(c.color,60);}
-      el.title=(seg.ev.allDay?"종일":(seg.ev.start||""))+" · "+seg.ev.title;
+      bindTip(el,(seg.ev.allDay?"종일":(seg.ev.start||"")+(seg.ev.end?"–"+seg.ev.end:""))+" · "+seg.ev.title+(seg.ev.note?" — "+seg.ev.note:""));
       if(!isBar){el.classList.add("line");el.innerHTML='<i class="idot" style="background:'+c.color+'"></i>'+((seg.ev.allDay||!seg.ev.start)?"":'<span class="ihh">'+seg.ev.start.slice(0,2)+'</span>')+escapeHtml(seg.ev.title);}else{el.textContent=seg.ev.title;}
       el.onclick=e=>{e.stopPropagation();var mm=masterOf(seg.ev._id);if(!mm)return;if(isDesktop())openEditor(mm);else openEventPreview(seg.ev._id,e.currentTarget);};
       wk.appendChild(el);
@@ -483,6 +483,23 @@ function buildMonthGrid(){
     grid.appendChild(wk);
   });
   if(_mSlide){grid.style.animation="none";void grid.offsetWidth;grid.style.animation=(_mSlide<0?"slideML":"slideMR")+" .22s ease";_mSlide=0;}
+}
+
+/* ===== 캘린더 툴팁 ===== */
+var _tipEl=null;
+function tipbox(){if(!_tipEl){_tipEl=document.createElement("div");_tipEl.className="tipbox";_tipEl.hidden=true;document.body.appendChild(_tipEl);}return _tipEl;}
+function hideTip(){if(_tipEl)_tipEl.hidden=true;}
+function bindTip(el,text){
+  el.addEventListener("mouseenter",function(){
+    if(!window.matchMedia("(hover:hover)").matches)return;
+    var t=tipbox();t.textContent=text;t.hidden=false;
+    var r=el.getBoundingClientRect();
+    var x=Math.min(Math.max(8,r.left),window.innerWidth-t.offsetWidth-8);
+    var y=r.top-t.offsetHeight-8;if(y<8)y=r.bottom+8;
+    t.style.left=x+"px";t.style.top=y+"px";
+  });
+  el.addEventListener("mouseleave",hideTip);
+  el.addEventListener("click",hideTip);
 }
 
 /* ===== 허브 ===== */
@@ -744,7 +761,9 @@ function openEditor(ev,preset){
   const catChips=DB.categories.filter(function(c){return !c.secret||DB.happyOn;}).map(c=>'<button type="button" class="chip'+(c.id===e.catId?" sel":"")+'" data-cat="'+c.id+'" style="color:'+c.color+'"><i class="dot" style="background:'+c.color+'"></i><span>'+escapeHtml(c.name)+'</span></button>').join("");
   const impBtn=i=>'<button type="button" class="imp'+(e.imp===i?" sel":"")+'" data-imp="'+i+'"><span class="imp-bar" style="height:'+(8+i*3)+'px"></span>'+["","보통","높음","매우 높음"][i]+'</button>';
   var raidLog=(DB.goldLogs||[]).find(function(x){return x.type==="raid"&&x.eventId===e.id;});var raidGoldVal=raidLog?raidLog.gold:"";var selKind=e.wowKind||"raid";
-  var happyCntVal=(DB.happyLogs||[]).filter(function(x){return x.eventId===e.id;}).length;
+  var evHL=(DB.happyLogs||[]).filter(function(x){return x.eventId===e.id;});
+  var happyCntVal=evHL.length,happyTypeVal=(evHL[0]&&evHL[0].type)||"solo",happyPartnerVal=(evHL[0]&&evHL[0].partner)||"";
+  var hpOpts=(DB.happyPartners||[]).map(function(x){return '<option value="'+escapeHtml(x.name)+'"></option>';}).join("");
   var evExp=(DB.expenses||[]).filter(function(x){return x.eventId===e.id;});
   var evRowsHtml=(evExp.length?evExp.map(function(x){return expRowHTML(x.item,x.amount);}).join(""):expRowHTML("",""));
   var ecOpts='<option value=""'+(evExp.length?"":" selected")+'>— 분류 선택 —</option>'+(DB.expCats||[]).map(function(c){return '<option value="'+c.id+'"'+(((evExp[0]||{}).catId)===c.id?" selected":"")+'>'+escapeHtml(c.name)+'</option>';}).join("");
@@ -755,7 +774,7 @@ function openEditor(ev,preset){
     '<div class="field"><label>카테고리</label><div class="chips" id="fCats">'+catChips+'</div></div>'+
     '<div class="field" id="fWowKindW"'+(e.catId==="wow"?"":' style="display:none"')+'><label>와우 종류</label><select id="fWowKind"><option value="raid"'+(selKind==="raid"?" selected":"")+'>레이드</option><option value="mplus"'+(selKind==="mplus"?" selected":"")+'>쐐기</option><option value="guild"'+(selKind==="guild"?" selected":"")+'>길드이벤트</option><option value="etc"'+(selKind==="etc"?" selected":"")+'>기타</option></select></div>'+
     '<div class="field" id="fRaidGoldW"'+((e.catId==="wow"&&selKind==="raid")?"":' style="display:none"')+'><label>분배금 (골드) · 선택</label><input type="number" inputmode="numeric" id="fRaidGold" value="'+(raidGoldVal===""?"":raidGoldVal)+'" placeholder="비우면 나중에 확인"/></div>'+
-    '<div class="field" id="fHappyCntW"'+(e.catId==="happy"?"":' style="display:none"')+'><label>해소 횟수 · 선택</label><input type="number" inputmode="numeric" id="fHappyCnt" value="'+(happyCntVal||"")+'" placeholder="이 일정에서 해소한 횟수"/></div>'+
+    '<div id="fHappyW"'+(e.catId==="happy"?"":' style="display:none"')+'><div class="row2"><div class="field"><label>해피 유형</label><select id="fHappyType"><option value="solo"'+(happyTypeVal==="solo"?" selected":"")+'>마베</option><option value="sex"'+(happyTypeVal==="sex"?" selected":"")+'>섹스</option></select></div><div class="field"><label>횟수 · 선택</label><input type="number" inputmode="numeric" id="fHappyCnt" value="'+(happyCntVal||"")+'" placeholder="비우면 기록 없음"/></div></div><div class="field" id="fHappyPartnerW"'+(happyTypeVal==="sex"?"":' style="display:none"')+'><label>상대</label><input type="text" id="fHappyPartner" list="fHPList" value="'+escapeHtml(happyPartnerVal)+'" placeholder="상대 이름"/><datalist id="fHPList">'+hpOpts+'</datalist></div></div>'+
     '<div class="toggle"><span class="lbl">종일</span><div class="sw'+(e.allDay?" on":"")+'" id="fAllday"><i></i></div></div>'+
     '<div class="row2"><div class="field"><label>시작일</label><input type="date" id="fDate" value="'+e.date+'"/></div>'+
     '<div class="field" id="fEndW" '+(e.endDate&&e.endDate!==e.date?"":'style="display:none"')+'><label>종료일</label><input type="date" id="fEndDate" value="'+(e.endDate||e.date)+'"/></div></div>'+
@@ -773,9 +792,9 @@ function openEditor(ev,preset){
     '</div>'+
     '<div class="sheet-actions">'+(editing?'<button class="btn danger" id="mDel">삭제</button>':'')+'<button class="btn gold" id="mSave">저장</button></div></div>';
   showModal(root);root.onclick=ev2=>{if(ev2.target===root)closeModal();};
-  const q=s=>root.querySelector(s);q("#mX").onclick=closeModal;
+  const q=s=>root.querySelector(s);q("#mX").onclick=function(){closeModal();};
   let selCat=e.catId,selImp=e.imp;
-  function updWow(){var isW=(selCat==="wow");var kw=q("#fWowKindW");if(kw)kw.style.display=isW?"":"none";var rw=q("#fRaidGoldW");if(rw)rw.style.display=(isW&&q("#fWowKind").value==="raid")?"":"none";var hw=q("#fHappyCntW");if(hw)hw.style.display=(selCat==="happy")?"":"none";}
+  function updWow(){var isW=(selCat==="wow");var kw=q("#fWowKindW");if(kw)kw.style.display=isW?"":"none";var rw=q("#fRaidGoldW");if(rw)rw.style.display=(isW&&q("#fWowKind").value==="raid")?"":"none";var hw=q("#fHappyW");if(hw)hw.style.display=(selCat==="happy")?"":"none";}
   q("#fCats").querySelectorAll(".chip").forEach(b=>b.onclick=()=>{selCat=b.dataset.cat;q("#fCats").querySelectorAll(".chip").forEach(x=>x.classList.remove("sel"));b.classList.add("sel");updWow();});
   var _fwk=q("#fWowKind");if(_fwk)_fwk.onchange=updWow;
   q("#fImp").querySelectorAll(".imp").forEach(b=>b.onclick=()=>{selImp=parseInt(b.dataset.imp,10);q("#fImp").querySelectorAll(".imp").forEach(x=>x.classList.remove("sel"));b.classList.add("sel");});
@@ -784,6 +803,7 @@ function openEditor(ev,preset){
   sM.onclick=()=>{sM.classList.toggle("on");q("#fEndW").style.display=sM.classList.contains("on")?"flex":"none";};
   q("#fMore").onclick=()=>{var d=q("#fDetails");d.hidden=!d.hidden;q("#fMore").classList.toggle("open",!d.hidden);q("#fMore").querySelector("i").className="ti ti-chevron-"+(d.hidden?"down":"up");};
   q("#fRepeat").onchange=()=>{q("#fRepUntilW").style.display=q("#fRepeat").value==="none"?"none":"";};
+  var _fht=q("#fHappyType");if(_fht)_fht.onchange=function(){q("#fHappyPartnerW").style.display=_fht.value==="sex"?"":"none";};
   bindExpRows(q("#evItems"),q("#evItemAdd"));
   q("#mSave").onclick=()=>{const title=q("#fTitle").value.trim();if(!title){toast("제목을 입력해주세요");return;}
     const allDay=sA.classList.contains("on"),multi=sM.classList.contains("on");
@@ -795,7 +815,12 @@ function openEditor(ev,preset){
     const i=DB.events.findIndex(x=>x.id===e.id);if(i>=0)DB.events[i]=rec;else DB.events.push(rec);
     (function(){var exRows=readExpRows(q("#evItems"));DB.expenses=(DB.expenses||[]).filter(function(x){return x.eventId!==e.id;});if(exRows.length){var ecat=q("#evExpCat").value||"etc";DB.expItems=DB.expItems||[];exRows.forEach(function(rr){if(!DB.expItems.some(function(z){return z.name===rr.item;}))DB.expItems.push({id:uid(),name:rr.item});DB.expenses.push({id:uid(),date:rec.date,vendor:rec.title,item:rr.item,amount:rr.amount,catId:ecat,source:"schedule",eventId:e.id,orderId:e.id});});}})();
     (function(){DB.goldLogs=(DB.goldLogs||[]).filter(function(x){return !(x.type==="raid"&&x.eventId===e.id);});var _rg=q("#fRaidGold");if(selCat==="wow"&&q("#fWowKind").value==="raid"&&_rg&&_rg.value.trim()!==""){DB.goldLogs.push({id:uid(),type:"raid",date:rec.date,gold:Number(_rg.value)||0,eventId:e.id});}})();
-    (function(){DB.happyLogs=(DB.happyLogs||[]).filter(function(x){return x.eventId!==e.id;});var _hc=q("#fHappyCnt");var n=(selCat==="happy"&&_hc)?(parseInt(_hc.value,10)||0):0;for(var _i=0;_i<n;_i++){DB.happyLogs.push({id:uid(),date:rec.date,time:rec.start||"12:00",type:"solo",source:"event",eventId:e.id});}})();
+    (function(){DB.happyLogs=(DB.happyLogs||[]).filter(function(x){return x.eventId!==e.id;});var _hc=q("#fHappyCnt");var n=(selCat==="happy"&&_hc)?(parseInt(_hc.value,10)||0):0;if(!n)return;
+      var ht=(q("#fHappyType")||{}).value||"solo";var hp=ht==="sex"?((q("#fHappyPartner")||{}).value||"").trim():"";
+      if(hp){DB.happyPartners=DB.happyPartners||[];if(!DB.happyPartners.some(function(z){return z.name===hp;}))DB.happyPartners.push({id:uid(),name:hp});}
+      for(var _i=0;_i<n;_i++){var _l={id:uid(),date:rec.date,time:rec.start||"12:00",type:ht,source:"event",eventId:e.id,note:""};
+        if(ht==="sex"){_l.partner=hp;_l.amount=0;_l.solo={};}else{_l.solo={mediaCat:"",actor:"",title:""};_l.partner="";_l.amount=0;}
+        DB.happyLogs.push(_l);}})();
     save();closeModal();selDate=rec.date;viewMonth=new Date(parseYmd(rec.date).getFullYear(),parseYmd(rec.date).getMonth(),1);renderHome();toast(i>=0?"수정됨":"추가됨");};
   const del=q("#mDel");if(del)del.onclick=()=>{if(confirm("“"+e.title+"” 일정을 삭제할까요?")){DB.events=DB.events.filter(x=>x.id!==e.id);DB.happyLogs=(DB.happyLogs||[]).filter(x=>x.eventId!==e.id);DB.goldLogs=(DB.goldLogs||[]).filter(x=>!(x.type==="raid"&&x.eventId===e.id));save();closeModal();renderHome();toast("삭제됨");}};
 }
@@ -814,7 +839,7 @@ function openRoutineEditor(r,presetCadence){
     '<div class="field"><label>카테고리</label><div class="chips" id="rCats">'+catChips+'</div></div>'+
     '<div class="sheet-actions">'+(editing?'<button class="btn danger" id="rDel">삭제</button>':'')+'<button class="btn gold" id="rSave">저장</button></div></div>';
   showModal(root);root.onclick=ev=>{if(ev.target===root)closeModal();};
-  const q=s=>root.querySelector(s);q("#mX").onclick=closeModal;let selCat=e.catId;
+  const q=s=>root.querySelector(s);q("#mX").onclick=function(){closeModal();};let selCat=e.catId;
   q("#rType").onchange=()=>{q("#rTgtW").style.display=q("#rType").value==="counter"?"":"none";};
   q("#rCats").querySelectorAll(".chip").forEach(b=>b.onclick=()=>{selCat=b.dataset.cat;q("#rCats").querySelectorAll(".chip").forEach(x=>x.classList.remove("sel"));b.classList.add("sel");});
   q("#rSave").onclick=()=>{const title=q("#rTitle").value.trim();if(!title){toast("제목을 입력해주세요");return;}
@@ -834,12 +859,12 @@ function openHealthEditor(dstr){
     '<div class="field"><label>영양제</label><input type="text" id="hSupp" value="'+escapeHtml(rec.supp)+'" placeholder="예: 종합비타민, 오메가3"/></div>'+
     '<div class="sheet-actions"><button class="btn gold" id="hSave">저장</button></div></div>';
   showModal(root);root.onclick=ev=>{if(ev.target===root)closeModal();};
-  const q=s=>root.querySelector(s);q("#mX").onclick=closeModal;
+  const q=s=>root.querySelector(s);q("#mX").onclick=function(){closeModal();};
   const ex=q("#hEx");ex.onclick=()=>{ex.classList.toggle("on");q("#hTypeW").style.display=ex.classList.contains("on")?"flex":"none";};
   q("#hSave").onclick=()=>{DB.health[dstr]={exercised:ex.classList.contains("on"),type:q("#hType").value.trim(),diet:q("#hDiet").value.trim(),supp:q("#hSupp").value.trim()};save();closeModal();renderHome();toast("저장됨");};
 }
 var modalPushed=false,_modalPopping=false;
-function showModal(root){showModal(root);if(!modalPushed){try{history.pushState({hoojeModal:1},"");}catch(e){}modalPushed=true;}}
+function showModal(root){root.hidden=false;if(!modalPushed){try{history.pushState({hoojeModal:1},"");}catch(e){}modalPushed=true;}}
 function closeModal(fromPop){const r=document.getElementById("modalRoot");r.hidden=true;r.innerHTML="";r.onclick=null;
   if(modalPushed){modalPushed=false;if(!fromPop){_modalPopping=true;try{history.back();}catch(e){_modalPopping=false;}}}}
 
@@ -854,7 +879,7 @@ function openHubEdit(){
     '<div class="sub" style="margin-bottom:12px">보일 항목을 켜고, 화살표로 순서를 바꾸세요</div>'+items+
     '<div class="sheet-actions"><button class="btn gold" id="mDone">완료</button></div></div>';
   showModal(root);root.onclick=ev=>{if(ev.target===root)closeModal();};
-  const q=s=>root.querySelector(s);q("#mX").onclick=closeModal;q("#mDone").onclick=closeModal;
+  const q=s=>root.querySelector(s);q("#mX").onclick=function(){closeModal();};q("#mDone").onclick=function(){closeModal();};
   root.querySelectorAll("[data-tg]").forEach(s=>s.onclick=()=>{const i=+s.dataset.tg;DB.hubBlocks[i].on=!DB.hubBlocks[i].on;save();refreshDay();openHubEdit();});
   root.querySelectorAll("[data-up]").forEach(b=>b.onclick=()=>{const i=+b.dataset.up;if(i>0){const a=DB.hubBlocks;const t=a[i-1];a[i-1]=a[i];a[i]=t;save();refreshDay();openHubEdit();}});
   root.querySelectorAll("[data-down]").forEach(b=>b.onclick=()=>{const i=+b.dataset.down;const a=DB.hubBlocks;if(i<a.length-1){const t=a[i+1];a[i+1]=a[i];a[i]=t;save();refreshDay();openHubEdit();}});
@@ -883,7 +908,7 @@ function openFocusEditor(f){
     '<div class="field"><label>상세 내용</label><textarea id="foDetail" rows="6" placeholder="체크할 내용 · 메모">'+escapeHtml(e.detail||"")+'</textarea></div>'+
     '<div class="sheet-actions">'+(editing?'<button class="btn danger" id="foDel">삭제</button>':'')+'<button class="btn gold" id="foSave">저장</button></div></div>';
   showModal(root);root.onclick=function(x){if(x.target===root)closeModal();};
-  var q=function(sel){return root.querySelector(sel);};q("#mX").onclick=closeModal;
+  var q=function(sel){return root.querySelector(sel);};q("#mX").onclick=function(){closeModal();};
   q("#foSave").onclick=function(){var title=q("#foTitle").value.trim();if(!title){toast("제목을 입력해주세요");return;}
     var rec={id:e.id,title:title,detail:q("#foDetail").value.trim()};
     DB.focusList=DB.focusList||[];var i=DB.focusList.findIndex(function(x){return x.id===e.id;});if(i>=0)DB.focusList[i]=rec;else DB.focusList.push(rec);
@@ -966,7 +991,7 @@ function openExpenseEditor(exp){
     '<div class="field"><label>메모</label><input type="text" id="xNote" value="'+escapeHtml(e.note||"")+'" placeholder="선택"/></div>'+
     '<div class="sheet-actions">'+(editing?'<button class="btn danger" id="xDel">삭제</button>':'')+'<button class="btn gold" id="xSave">저장</button></div></div>';
   showModal(root);root.onclick=function(x){if(x.target===root)closeModal();};
-  var q=function(sel){return root.querySelector(sel);};q("#mX").onclick=closeModal;
+  var q=function(sel){return root.querySelector(sel);};q("#mX").onclick=function(){closeModal();};
   bindExpRows(q("#xItems"),q("#xItemAdd"));
   q("#xItems").addEventListener("change",function(ev){if(ev.target&&ev.target.classList&&ev.target.classList.contains("xr-item")){var it=(DB.expItems||[]).find(function(z){return z.name===ev.target.value.trim();});if(it&&it.vendor&&!q("#xVendor").value.trim())q("#xVendor").value=it.vendor;}});
   q("#xSave").onclick=function(){
@@ -1045,7 +1070,7 @@ function openHappyLog(logId){
     '<div class="field"><label>메모</label><input type="text" id="hNote" value="'+escapeHtml(e.note||"")+'" placeholder="선택"/></div>'+
     '<div class="sheet-actions">'+(existing?'<button class="btn danger" id="hDel">삭제</button>':'')+'<button class="btn pink" id="hSave">'+(existing?"저장":"기록")+'</button></div></div>';
   showModal(root);root.onclick=function(x){if(x.target===root)closeModal();};
-  var q=function(sel){return root.querySelector(sel);};q("#mX").onclick=closeModal;
+  var q=function(sel){return root.querySelector(sel);};q("#mX").onclick=function(){closeModal();};
   var selType=e.type;
   function applyType(){q("#hSolo").style.display=selType==="solo"?"":"none";q("#hSex").style.display=selType==="sex"?"":"none";q("#hType").querySelectorAll("button").forEach(function(b){b.classList.toggle("sel",b.dataset.ht===selType);});}
   q("#hType").querySelectorAll("button").forEach(function(b){b.onclick=function(){selType=b.dataset.ht;applyType();};});
@@ -1156,7 +1181,7 @@ function openGoldCraft(logId){
     '<div class="field"><label>재료값 (골드)</label><input type="number" inputmode="numeric" id="gcMat" value="'+(e.material===""?"":e.material)+'" placeholder="0"/></div>'+
     '<div class="sheet-actions">'+(ex?'<button class="btn danger" id="gcDel">삭제</button>':'')+'<button class="btn gold" id="gcSave">저장</button></div></div>';
   showModal(root);root.onclick=function(x){if(x.target===root)closeModal();};
-  var q=function(sel){return root.querySelector(sel);};q("#mX").onclick=closeModal;
+  var q=function(sel){return root.querySelector(sel);};q("#mX").onclick=function(){closeModal();};
   q("#gcSave").onclick=function(){var rec={id:e.id,type:"craft",date:q("#gcDate").value,fee:Number(q("#gcFee").value)||0,material:Number(q("#gcMat").value)||0};DB.goldLogs=DB.goldLogs||[];var i=DB.goldLogs.findIndex(function(x){return x.id===e.id;});if(i>=0)DB.goldLogs[i]=rec;else DB.goldLogs.push(rec);save();closeModal();renderGoldPage();toast(ex?"수정됨":"추가됨");};
   var del=q("#gcDel");if(del)del.onclick=function(){DB.goldLogs=(DB.goldLogs||[]).filter(function(x){return x.id!==e.id;});save();closeModal();renderGoldPage();toast("삭제됨");};
 }
@@ -1173,7 +1198,7 @@ function openGoldSale(logId){
     '<div class="gold-rate" id="gsRate">시세 —</div>'+
     '<div class="sheet-actions">'+(ex?'<button class="btn danger" id="gsDel">삭제</button>':'')+'<button class="btn gold" id="gsSave">저장</button></div></div>';
   showModal(root);root.onclick=function(x){if(x.target===root)closeModal();};
-  var q=function(sel){return root.querySelector(sel);};q("#mX").onclick=closeModal;
+  var q=function(sel){return root.querySelector(sel);};q("#mX").onclick=function(){closeModal();};
   function upd(){var g=Number(q("#gsGold").value)||0;var c=Number(q("#gsCash").value)||0;q("#gsRate").innerHTML=(g&&c)?('시세 <b>100:'+(Math.round(c*100/g*10)/10)+'</b> <small style="color:var(--faint)">(100만골당 '+gnum(Math.round(c/(g/1000000)))+'원)</small>'):'시세 —';}
   q("#gsGold").addEventListener("input",upd);q("#gsCash").addEventListener("input",upd);upd();
   q("#gsSave").onclick=function(){var buyer=q("#gsBuyer").value.trim();var rec={id:e.id,type:"sale",date:q("#gsDate").value,buyer:buyer,gold:Number(q("#gsGold").value)||0,cash:Number(q("#gsCash").value)||0};if(!rec.gold||!rec.cash){toast("골드와 현금을 입력해주세요");return;}DB.goldBuyers=DB.goldBuyers||[];if(buyer&&!DB.goldBuyers.some(function(b){return b.name===buyer;}))DB.goldBuyers.push({id:uid(),name:buyer});DB.goldLogs=DB.goldLogs||[];var i=DB.goldLogs.findIndex(function(x){return x.id===e.id;});if(i>=0)DB.goldLogs[i]=rec;else DB.goldLogs.push(rec);save();closeModal();renderGoldPage();toast(ex?"수정됨":"추가됨");};
@@ -1297,7 +1322,7 @@ function editCat(id){
     '<div class="field"><label>색</label><input type="color" id="cColor" value="'+c.color+'" style="height:44px;padding:4px"/></div>'+
     '<div class="sheet-actions">'+(id&&DB.categories.length>1?'<button class="btn danger" id="cDel">삭제</button>':'')+'<button class="btn gold" id="cSave">저장</button></div></div>';
   showModal(root);root.onclick=ev=>{if(ev.target===root)closeModal();};
-  const q=s=>root.querySelector(s);q("#mX").onclick=closeModal;
+  const q=s=>root.querySelector(s);q("#mX").onclick=function(){closeModal();};
   q("#cSave").onclick=()=>{const name=q("#cName").value.trim();if(!name){toast("이름을 입력해주세요");return;}const color=q("#cColor").value;
     if(id){const cc=DB.categories.find(x=>x.id===id);cc.name=name;cc.color=color;}else DB.categories.push({id:c.id,name,color});
     save();closeModal();renderSettings();toast("저장됨");};
@@ -1312,7 +1337,7 @@ function openCharEditor(charId){
     '<div class="field"><label>클래스 (클래스 컬러 적용)</label><select id="chClass"><option value="">— 선택 —</option>'+opts+'</select></div>'+
     '<div class="sheet-actions"><button class="btn danger" id="chDel">삭제</button><button class="btn gold" id="chSave">저장</button></div></div>';
   showModal(root);root.onclick=function(x){if(x.target===root)closeModal();};
-  var q=function(sel){return root.querySelector(sel);};q("#mX").onclick=closeModal;
+  var q=function(sel){return root.querySelector(sel);};q("#mX").onclick=function(){closeModal();};
   q("#chSave").onclick=function(){var name=q("#chName").value.trim();if(!name){toast("이름을 입력해주세요");return;}var i=DB.wowChars.findIndex(function(c){return c.id===ch.id;});DB.wowChars[i]={id:ch.id,name:name,class:q("#chClass").value||undefined};save();closeModal();renderSettings();toast("저장됨");};
   q("#chDel").onclick=function(){if(confirm("이 캐릭터와 퀘스트를 삭제할까요?")){DB.wowChars=DB.wowChars.filter(function(c){return c.id!==ch.id;});DB.wowQuests=DB.wowQuests.filter(function(x){return x.charId!==ch.id;});save();closeModal();renderSettings();}};
 }
@@ -1324,7 +1349,7 @@ function addQuest(charId){
     '<div class="field" id="qTgtW" style="display:none"><label>목표 횟수</label><input type="number" id="qTarget" value="4" min="1"/></div>'+
     '<div class="sheet-actions"><button class="btn gold" id="qSave">추가</button></div></div>';
   showModal(root);root.onclick=ev=>{if(ev.target===root)closeModal();};
-  const q=s=>root.querySelector(s);q("#mX").onclick=closeModal;
+  const q=s=>root.querySelector(s);q("#mX").onclick=function(){closeModal();};
   q("#qType").onchange=()=>{q("#qTgtW").style.display=q("#qType").value==="counter"?"flex":"none";};
   q("#qSave").onclick=()=>{const title=q("#qTitle").value.trim();if(!title){toast("제목을 입력해주세요");return;}
     const type=q("#qType").value;const rec={id:uid(),charId,title,type};if(type==="counter")rec.target=Math.max(1,parseInt(q("#qTarget").value,10)||1);
@@ -1397,7 +1422,7 @@ function showApp(){
 function loginErr(m){ var n=document.querySelector(".login-note"); if(n){ n.textContent=m; n.style.color="#e2554e"; } }
 function boot(){
   firebase.initializeApp(window.FIREBASE_CONFIG);
-  console.log("HOOJE build: editorial-v2");
+  console.log("HOOJE build: editorial-v3");
   FB.auth=firebase.auth(); FB.db=firebase.firestore();
   try{ FB.auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL); }catch(e){}
   var lb=document.getElementById("loginBtn"), pinEl=document.getElementById("loginPin");

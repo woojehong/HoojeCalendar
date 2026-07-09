@@ -424,5 +424,7 @@ textarea{resize:vertical;min-height:60px;}
 ::-webkit-scrollbar-thumb:hover{background:#333842;background-clip:padding-box;}
 ::-webkit-scrollbar-corner{background:transparent;}
 
+.tipbox{position:fixed;z-index:120;background:#232a34;border:1px solid var(--line-soft);border-radius:8px;padding:7px 11px;font-size:12px;line-height:1.45;color:var(--text);pointer-events:none;max-width:320px;}
+
 @keyframes slideML{from{transform:translateX(-26px);opacity:.35}to{transform:translateX(0);opacity:1}}
 @keyframes slideMR{from{transform:translateX(26px);opacity:.35}to{transform:translateX(0);opacity:1}}
