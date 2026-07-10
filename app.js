@@ -434,7 +434,7 @@ function buildMonthGrid(){
   const first=new Date(y,m,1);const gridStart=addDays(first,-first.getDay());
   const weeks=[];
   for(let w=0;w<6;w++){const days=[];for(let i=0;i<7;i++)days.push(addDays(gridStart,w*7+i));weeks.push(days);if(days[6].getMonth()!==m&&w>=4)break;}
-  const gridEnd=weeks[weeks.length-1][6];const insts=eventsForRange(gridStart,gridEnd).filter(function(e){return e.catId!=="ai";});
+  const gridEnd=weeks[weeks.length-1][6];const insts=eventsForRange(gridStart,gridEnd).filter(function(e){return e.catId!=="ai"&&!e.workout;});
   const LT=26,LH=18,ML=3;
   const grid=document.getElementById("calGrid");grid.innerHTML="";
   weeks.forEach(days=>{
