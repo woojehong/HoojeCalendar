@@ -538,11 +538,13 @@ function blkStats(el){
   if(isToday){const nm=new Date().getHours()*60+new Date().getMinutes();const nt=nm<360?nm+1440:nm;
     remain=timed.filter(function(e){var en=tlMin(e.end||e.start);if(en<=tlMin(e.start))en+=1440;return en>=nt;}).length;}
   const dr=DB.routines.filter(r=>r.cadence==="daily");const done=dr.filter(r=>routineIsDone(r,selDate)).length;
-  const dd=Math.floor((wowNextReset()-new Date())/86400000);
+  var nextTime="—";
+  if(isToday){var nowMin=new Date().getHours()*60+new Date().getMinutes();var fut=timed.filter(function(e){return toMin(e.start)>=nowMin;}).sort(function(a,b){return toMin(a.start)-toMin(b.start);});if(fut.length)nextTime=fut[0].start;}
+  else{var f0=timed.slice().sort(function(a,b){return toMin(a.start)-toMin(b.start);});if(f0.length)nextTime=f0[0].start;}
   el.innerHTML='<div class="stats">'+
     '<div class="stat"><b>'+remain+'</b><span>남은 일정</span></div>'+
     '<div class="stat"><b style="color:var(--gold)">'+done+'/'+dr.length+'</b><span>'+(isToday?"오늘":"이 날")+' 체크</span></div>'+
-    '<div class="stat"><b style="color:var(--wow)">D-'+dd+'</b><span>와우 리셋</span></div></div>';
+    '<div class="stat"><b style="color:var(--wow)">'+nextTime+'</b><span>다음 일정</span></div></div>';
 }
 function fmtGb(g){g=Number(g);if(isNaN(g))return "";return g===0?"선두":g.toFixed(1)+"경기차";}
 function sbAgo(iso){if(!iso)return "";var t=new Date(iso).getTime();if(isNaN(t))return "";var m=Math.floor((Date.now()-t)/60000);if(m<1)return "방금";if(m<60)return m+"분 전";var h=Math.floor(m/60);if(h<24)return h+"시간 전";return Math.floor(h/24)+"일 전";}
@@ -1422,7 +1424,7 @@ function showApp(){
 function loginErr(m){ var n=document.querySelector(".login-note"); if(n){ n.textContent=m; n.style.color="#e2554e"; } }
 function boot(){
   firebase.initializeApp(window.FIREBASE_CONFIG);
-  console.log("HOOJE build: editorial-v3");
+  console.log("HOOJE build: editorial-v4");
   FB.auth=firebase.auth(); FB.db=firebase.firestore();
   try{ FB.auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL); }catch(e){}
   var lb=document.getElementById("loginBtn"), pinEl=document.getElementById("loginPin");
