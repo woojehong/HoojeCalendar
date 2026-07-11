@@ -46,7 +46,7 @@ function defaultData(){
     happyOn:false,happyLogs:[],happyMediaCats:["J","K","BJ","기타"],happyActors:[],happyPartners:[],
     goldLogs:[],goldBuyers:[],
     focusList:[],
-    expCats:[{id:"food",name:"식료품"},{id:"suppl",name:"영양제·건강"},{id:"living",name:"생활용품"},{id:"cloth",name:"의류"},{id:"hobby",name:"취미·콘텐츠"},{id:"eatout",name:"외식"},{id:"date",name:"데이트"},{id:"etc",name:"기타"}],
+    expCats:[{id:"food",name:"식료품"},{id:"suppl",name:"영양제·건강"},{id:"living",name:"생활용품"},{id:"cloth",name:"의류"},{id:"hobby",name:"취미·콘텐츠"},{id:"eatout",name:"외식"},{id:"date",name:"데이트"},{id:"social",name:"사회생활"},{id:"etc",name:"기타"}],
     wowChars:[],
     wowQuests:[],
     wowProgress:{},
@@ -70,7 +70,7 @@ function flushSave(){ if(!FB.docRef||!_dirty)return; _dirty=false; clearTimeout(
 function normalizeDB(){ if(!DB)return;
   if(!DB.counters)DB.counters=[]; if(!DB.counterLogs)DB.counterLogs=[]; if(!DB.hubBlocks)DB.hubBlocks=[];
   if(!DB.expenses)DB.expenses=[]; if(!DB.expVendors)DB.expVendors=[]; if(!DB.expItems)DB.expItems=[];
-  if(!DB.expCats||!DB.expCats.length)DB.expCats=[{id:"food",name:"식료품"},{id:"suppl",name:"영양제·건강"},{id:"living",name:"생활용품"},{id:"cloth",name:"의류"},{id:"hobby",name:"취미·콘텐츠"},{id:"eatout",name:"외식"},{id:"date",name:"데이트"},{id:"etc",name:"기타"}];
+  if(!DB.expCats||!DB.expCats.length)DB.expCats=[{id:"food",name:"식료품"},{id:"suppl",name:"영양제·건강"},{id:"living",name:"생활용품"},{id:"cloth",name:"의류"},{id:"hobby",name:"취미·콘텐츠"},{id:"eatout",name:"외식"},{id:"date",name:"데이트"},{id:"social",name:"사회생활"},{id:"etc",name:"기타"}];
   if(DB.happyOn===undefined)DB.happyOn=false; if(!DB.happyLogs)DB.happyLogs=[]; if(!DB.happyMediaCats||!DB.happyMediaCats.length)DB.happyMediaCats=["J","K","BJ","기타"]; if(!DB.happyActors)DB.happyActors=[]; if(!DB.happyPartners)DB.happyPartners=[];
   if(!DB.goldLogs)DB.goldLogs=[]; if(!DB.goldBuyers)DB.goldBuyers=[];
   if(!DB.wowCollapse)DB.wowCollapse={};
@@ -105,8 +105,9 @@ function eventsForRange(rs,re){
   DB.events.forEach(ev=>{
     if(!DB.happyOn){var _sc=catById(ev.catId);if(_sc&&_sc.secret)return;}
     if(catFilter&&ev.catId!==catFilter)return;
-    const base=parseYmd(ev.date);const baseEnd=parseYmd(ev.endDate||ev.date);
-    const spanDays=Math.round((startOfDay(baseEnd)-startOfDay(base))/86400000);
+    const base=parseYmd(ev.date);let baseEnd=parseYmd(ev.endDate||ev.date);
+    if(!ev.allDay&&ev.end&&toMin(ev.end)<360&&startOfDay(baseEnd)>startOfDay(base)){baseEnd=addDays(baseEnd,-1);}
+    const spanDays=Math.max(0,Math.round((startOfDay(baseEnd)-startOfDay(base))/86400000));
     const rep=ev.repeat||"none";
     const push=s=>{const e=addDays(s,spanDays);if(e<rs||s>re)return;out.push(Object.assign({},ev,{date:ymd(s),endDate:ymd(e),_id:ev.id}));};
     if(rep==="none"){push(base);return;}
